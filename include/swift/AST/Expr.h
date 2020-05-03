@@ -2683,12 +2683,14 @@ public:
 ///
 class ForceValueExpr : public Expr {
   Expr *SubExpr;
+  Expr *ChainBase;
   SourceLoc ExclaimLoc;
 
 public:
   ForceValueExpr(Expr *subExpr, SourceLoc exclaimLoc, bool forcedIUO = false)
     : Expr(ExprKind::ForceValue, /*Implicit=*/exclaimLoc.isInvalid(), Type()),
-      SubExpr(subExpr), ExclaimLoc(exclaimLoc) {
+      SubExpr(subExpr), ChainBase(subExpr->getMemberChainBase()),
+      ExclaimLoc(exclaimLoc) {
     Bits.ForceValueExpr.ForcedIUO = forcedIUO;
   }
 
@@ -2713,7 +2715,11 @@ public:
   SourceLoc getExclaimLoc() const { return ExclaimLoc; }
 
   Expr *getSubExpr() const { return SubExpr; }
-  void setSubExpr(Expr *expr) { SubExpr = expr; }
+  void setSubExpr(Expr *expr) {
+    SubExpr = expr;
+    ChainBase = expr->getMemberChainBase();
+  }
+  Expr *getChainBase() const { return ChainBase; }
 
   bool isForceOfImplicitlyUnwrappedOptional() const {
     return Bits.ForceValueExpr.ForcedIUO;

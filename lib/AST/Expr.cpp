@@ -723,6 +723,8 @@ Expr *Expr::getMemberChainBase() {
     return CE->getChainBase();
   } else if (auto *BOE = dyn_cast<BindOptionalExpr>(this)) {
     return BOE->getChainBase();
+  } else if (auto *FVE = dyn_cast<ForceValueExpr>(this)) {
+    return FVE->getChainBase();
   } else {
     return this;
   }
