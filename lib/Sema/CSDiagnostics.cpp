@@ -1106,14 +1106,6 @@ bool MissingOptionalUnwrapFailure::diagnoseAsError() {
 
   auto *anchor = castToExpr(getAnchor());
 
-  // If this is an unresolved member expr e.g. `.foo` its
-  // base type is going to be the same as result type minus
-  // r-value adjustment because base could be an l-value type.
-  // We want to fix both cases by only diagnose one of them,
-  // otherwise this is just going to result in a duplcate diagnostic.
-  if (getLocator()->isLastElement<LocatorPathElt::UnresolvedMember>())
-    return false;
-
   if (auto assignExpr = dyn_cast<AssignExpr>(anchor))
     anchor = assignExpr->getSrc();
 
@@ -2034,10 +2026,15 @@ bool ContextualFailure::diagnoseAsError() {
     return false;
   }
 
-  case ConstraintLocator::RValueAdjustment: {
+  case ConstraintLocator::Member:
+  case ConstraintLocator::FunctionResult:
+  case ConstraintLocator::UnresolvedMember: {
     auto &solution = getSolution();
-    auto overload = getOverloadChoiceIfAvailable(
-        getConstraintLocator(anchor, ConstraintLocator::UnresolvedMember));
+    auto locator = getConstraintLocator(anchor,
+                                        isExpr<UnresolvedMemberExpr>(anchor)
+                                          ? ConstraintLocator::UnresolvedMember
+                                          : ConstraintLocator::Member);
+    auto overload = getOverloadChoiceIfAvailable(locator);
     if (!(overload && overload->choice.isDecl()))
       return false;
 
@@ -2072,13 +2069,22 @@ bool ContextualFailure::diagnoseAsError() {
         });
 
     if (numMissingArgs == 0 || numMissingArgs > 1) {
-      auto diagnostic = emitDiagnostic(
-          diag::expected_parens_in_contextual_member, choice->getName());
-
-      // If there are no parameters we can suggest a fix-it
-      // to form an explicit call.
-      if (numMissingArgs == 0)
-        diagnostic.fixItInsertAfter(getSourceRange().End, "()");
+      auto applyFixIt = [&](InFlightDiagnostic &diagnostic) {
+        // If there are no parameters we can suggest a fix-it
+        // to form an explicit call.
+        if (numMissingArgs == 0)
+          diagnostic.fixItInsertAfter(getSourceRange().End, "()");
+      };
+      if (fnType->getResult()->isEqual(toType)) {
+        auto diag = emitDiagnostic(
+                      diag::expected_parens_in_contextual_member_type,
+                      choice->getName(), fnType->getResult());
+        applyFixIt(diag);
+      } else {
+        auto diag = emitDiagnostic(diag::expected_parens_in_contextual_member,
+                                   choice->getName());
+        applyFixIt(diag);
+      }
     } else {
       emitDiagnostic(diag::expected_argument_in_contextual_member,
                      choice->getName(), params.front().getPlainType());
@@ -2294,6 +2300,9 @@ void ContextualFailure::tryFixIts(InFlightDiagnostic &diagnostic) const {
 
 bool ContextualFailure::diagnoseMissingFunctionCall() const {
   if (getLocator()->isLastElement<LocatorPathElt::RValueAdjustment>())
+    return false;
+
+  if (getLocator()->isLastElement<LocatorPathElt::UnresolvedMember>())
     return false;
 
   auto *srcFT = getFromType()->getAs<FunctionType>();

@@ -2703,17 +2703,16 @@ namespace {
     }
 
     Expr *visitUnresolvedMemberExpr(UnresolvedMemberExpr *expr) {
-      // Dig out the type of the base, which will be the result type of this
-      // expression.  If constraint solving resolved this to an UnresolvedType,
+      // If constraint solving resolved the base type to an UnresolvedType,
       // then we're in an ambiguity tolerant mode used for diagnostic
       // generation.  Just leave this as an unresolved member reference.
-      Type resultTy = simplifyType(cs.getType(expr));
-      if (resultTy->getRValueType()->is<UnresolvedType>()) {
-        cs.setType(expr, resultTy);
+      Type baseTy = simplifyType(solution.getUnresolvedMemberBaseType(expr));
+
+      if (baseTy->getRValueType()->is<UnresolvedType>()) {
+        cs.setType(expr, baseTy);
         return expr;
       }
 
-      Type baseTy = resultTy->getRValueType();
       auto &ctx = cs.getASTContext();
 
       // Find the selected member.
@@ -2771,7 +2770,8 @@ namespace {
         diagnoseAmbiguousNominalMember(baseTy, result);
       }
 
-      return coerceToType(result, resultTy, cs.getConstraintLocator(expr));
+      return coerceToType(result, simplifyType(cs.getType(expr)),
+                          cs.getConstraintLocator(expr));
     }
     
     /// Diagnose if the base type is optional, we're referring to a nominal
@@ -8457,6 +8457,15 @@ void Solution::setExprTypes(Expr *expr) const {
 
   SetExprTypes SET(*this);
   expr->walk(SET);
+}
+
+Type Solution::getUnresolvedMemberBaseType(UnresolvedMemberExpr *expr) const {
+  auto result = unresolvedMemberBaseTypes.find(expr);
+  if (result != unresolvedMemberBaseTypes.end())
+    return result->second;
+
+  auto &cs = getConstraintSystem();
+  return cs.getUnresolvedMemberBaseType(expr);
 }
 
 /// MARK: SolutionResult implementation.

@@ -166,6 +166,10 @@ Solution ConstraintSystem::finalize() {
     solution.nodeTypes.insert(nodeType);
   }
 
+  for (auto &baseType : UnresolvedMemberBaseTypes) {
+    solution.unresolvedMemberBaseTypes.insert(baseType);
+  }
+
   // Remember contextual types.
   solution.contextualTypes.assign(
       contextualTypes.begin(), contextualTypes.end());
@@ -234,6 +238,11 @@ void ConstraintSystem::applySolution(const Solution &solution) {
   // Add the node types back.
   for (auto &nodeType : solution.nodeTypes) {
     setType(nodeType.first, nodeType.second);
+  }
+
+  // Add the unresolved member base types back.
+  for (auto &baseType : solution.unresolvedMemberBaseTypes) {
+    setUnresolvedMemberBaseType(baseType.first, baseType.second);
   }
 
   // Add the contextual types.
@@ -456,6 +465,7 @@ ConstraintSystem::SolverScope::SolverScope(ConstraintSystem &cs)
   numOpenedExistentialTypes = cs.OpenedExistentialTypes.size();
   numDefaultedConstraints = cs.DefaultedConstraints.size();
   numAddedNodeTypes = cs.addedNodeTypes.size();
+  numUnresolvedMemberBaseTypes = cs.UnresolvedMemberBaseTypes.size();
   numCheckedConformances = cs.CheckedConformances.size();
   numDisabledConstraints = cs.solverState->getNumDisabledConstraints();
   numFavoredConstraints = cs.solverState->getNumFavoredConstraints();
@@ -529,6 +539,9 @@ ConstraintSystem::SolverScope::~SolverScope() {
       cs.NodeTypes.erase(node);
   }
   truncate(cs.addedNodeTypes, numAddedNodeTypes);
+
+  // Remove any unresolved member base types.
+  truncate(cs.UnresolvedMemberBaseTypes, numUnresolvedMemberBaseTypes);
 
   // Remove any conformances checked along the current path.
   truncate(cs.CheckedConformances, numCheckedConformances);
