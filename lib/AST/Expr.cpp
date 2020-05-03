@@ -716,6 +716,18 @@ bool Expr::canAppendPostfixExpression(bool appendingPostfixOperator) const {
   llvm_unreachable("Unhandled ExprKind in switch.");
 }
 
+Expr *Expr::getMemberChainBase() {
+  if (auto *UDE = dyn_cast<UnresolvedDotExpr>(this)) {
+    return UDE->getChainBase();
+  } else if (auto *CE = dyn_cast<CallExpr>(this)) {
+    return CE->getChainBase();
+  } else if (auto *BOE = dyn_cast<BindOptionalExpr>(this)) {
+    return BOE->getChainBase();
+  } else {
+    return this;
+  }
+}
+
 llvm::DenseMap<Expr *, Expr *> Expr::getParentMap() {
   class RecordingTraversal : public ASTWalker {
   public:

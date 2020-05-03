@@ -533,6 +533,13 @@ public:
   bool isSelfExprOf(const AbstractFunctionDecl *AFD,
                     bool sameBase = false) const;
 
+  /// Returns the base of a chain of member accesses/method calls. Most
+  /// expressions do not participate in member chains, and just return \c this.
+  Expr *getMemberChainBase();
+
+  /// Whether this expression is the tail of a member chain.
+  bool isMemberChainTail();
+
   /// Produce a mapping from each subexpression to its parent
   /// expression, with the provided expression serving as the root of
   /// the parent map.
@@ -2446,6 +2453,7 @@ public:
 /// A member access (foo.bar) on an expression with unresolved type.
 class UnresolvedDotExpr : public Expr {
   Expr *SubExpr;
+  Expr *ChainBase;
   SourceLoc DotLoc;
   DeclNameLoc NameLoc;
   DeclNameRef Name;
@@ -2457,8 +2465,8 @@ public:
       bool Implicit,
       ArrayRef<ValueDecl *> outerAlternatives = ArrayRef<ValueDecl *>())
       : Expr(ExprKind::UnresolvedDot, Implicit), SubExpr(subexpr),
-        DotLoc(dotloc), NameLoc(nameloc), Name(name),
-        OuterAlternatives(outerAlternatives) {
+        ChainBase(subexpr->getMemberChainBase()), DotLoc(dotloc),
+        NameLoc(nameloc), Name(name), OuterAlternatives(outerAlternatives) {
     Bits.UnresolvedDotExpr.FunctionRefKind =
       static_cast<unsigned>(NameLoc.isCompound() ? FunctionRefKind::Compound
                                                  : FunctionRefKind::Unapplied);
@@ -2514,7 +2522,11 @@ public:
 
   SourceLoc getDotLoc() const { return DotLoc; }
   Expr *getBase() const { return SubExpr; }
-  void setBase(Expr *e) { SubExpr = e; }
+  void setBase(Expr *e) {
+    SubExpr = e;
+    ChainBase = e->getMemberChainBase();
+  }
+  Expr *getChainBase() const { return ChainBase; }
 
   DeclNameRef getName() const { return Name; }
   DeclNameLoc getNameLoc() const { return NameLoc; }
@@ -2585,13 +2597,15 @@ public:
 /// is contained within more than one such expression.
 class BindOptionalExpr : public Expr {
   Expr *SubExpr;
+  Expr *ChainBase;
   SourceLoc QuestionLoc;
 
 public:
   BindOptionalExpr(Expr *subExpr, SourceLoc questionLoc,
                    unsigned depth, Type ty = Type())
     : Expr(ExprKind::BindOptional, /*Implicit=*/ questionLoc.isInvalid(), ty),
-      SubExpr(subExpr), QuestionLoc(questionLoc) {
+      SubExpr(subExpr), ChainBase(subExpr->getMemberChainBase()),
+      QuestionLoc(questionLoc) {
     Bits.BindOptionalExpr.Depth = depth;
     assert(Bits.BindOptionalExpr.Depth == depth && "bitfield truncation");
   }
@@ -2621,7 +2635,11 @@ public:
   }
 
   Expr *getSubExpr() const { return SubExpr; }
-  void setSubExpr(Expr *expr) { SubExpr = expr; }
+  void setSubExpr(Expr *expr) {
+    SubExpr = expr;
+    ChainBase = expr->getMemberChainBase();
+  }
+  Expr *getChainBase() const { return ChainBase; }
 
   static bool classof(const Expr *E) {
     return E->getKind() == ExprKind::BindOptional;
@@ -4180,6 +4198,10 @@ class ApplyExpr : public Expr {
   /// The function being called.
   Expr *Fn;
 
+  /// The base expression that this call ultimately hangs off of. If \c Fn is
+  /// not a member access, then the base is just \c this.
+  Expr *ChainBase;
+
   /// The argument being passed to it, and whether it's a 'super' argument.
   llvm::PointerIntPair<Expr *, 1, bool> ArgAndIsSuper;
   
@@ -4192,13 +4214,23 @@ protected:
     : Expr(Kind, Implicit, Ty), Fn(Fn), ArgAndIsSuper(Arg, false) {
     assert(classof((Expr*)this) && "ApplyExpr::classof out of date");
     assert(validateArg(Arg) && "Arg is not a permitted expr kind");
+
+    if (isa<CallExpr>(this) && isa<UnresolvedDotExpr>(Fn) && !Implicit)
+      ChainBase = Fn->getMemberChainBase();
+    else
+      ChainBase = this;
+
     Bits.ApplyExpr.ThrowsIsSet = false;
   }
 
 public:
   Expr *getFn() const { return Fn; }
-  void setFn(Expr *e) { Fn = e; }
+  void setFn(Expr *e) {
+    Fn = e;
+    ChainBase = e->getMemberChainBase();
+  }
   Expr *getSemanticFn() const { return Fn->getSemanticsProvidingExpr(); }
+  Expr *getChainBase() const { return ChainBase; }
   
   Expr *getArg() const { return ArgAndIsSuper.getPointer(); }
   void setArg(Expr *e) {

@@ -990,6 +990,35 @@ namespace {
       return tv;
     }
 
+    Type addImplicitMemberChainConstraints(Expr *expr, Type resultTy,
+                                          ConstraintLocator *locator) {
+      // If this is a member chain hanging off of an implicit member expression,
+      // the whole chain must have the same type.
+      auto *base = expr->getMemberChainBase();
+      if (auto *UME = dyn_cast<UnresolvedMemberExpr>(base)) {
+        Type baseTy = CS.getType(UME);
+
+        // All members of the chain must be convertible to the base type
+        CS.addConstraint(ConstraintKind::Conversion, resultTy, baseTy, locator);
+
+        // If this is the tail of a chain, create a new type variable to
+        // represent the result of the whole chain. In addtion to this chain
+        // element being convertible to the chain result, the chain result must
+        // itself be *equal* to the base type.
+        if (CS.isMemberChainTail(expr)) {
+          unsigned options = TVO_CanBindToLValue | TVO_CanBindToNoEscape;
+          auto chainResultTy = CS.createTypeVariable(locator, options);
+
+          CS.addConstraint(ConstraintKind::Conversion, resultTy, chainResultTy,
+                           locator);
+          CS.addConstraint(ConstraintKind::Equal, chainResultTy, baseTy,
+                           locator);
+        }
+      }
+
+      return resultTy;
+    }
+
     /// Add constraints for a subscript operation.
     Type addSubscriptConstraints(
         Expr *anchor, Type baseTy, Expr *index,
@@ -1602,8 +1631,13 @@ namespace {
                                             TVO_CanBindToNoEscape);
       CS.addConstraint(ConstraintKind::Conversion, memberTy, resultTy,
                        memberLocator);
-      CS.addConstraint(ConstraintKind::Equal, resultTy, baseTy,
-                       memberLocator);
+
+      // If there are no other accesses chained off this expression, baseTy
+      // must equal resultTy. Otherwise, conversion is okay.
+      auto kind = CS.isMemberChainTail(expr) ? ConstraintKind::Equal
+                                             : ConstraintKind::Conversion;
+      CS.addConstraint(kind, resultTy, baseTy, memberLocator);
+
       return resultTy;
     }
 
@@ -1668,9 +1702,23 @@ namespace {
         return methodTy;
       }
 
-      return addMemberRefConstraints(expr, expr->getBase(), expr->getName(),
-                                     expr->getFunctionRefKind(),
-                                     expr->getOuterAlternatives());
+      auto resultTy = addMemberRefConstraints(expr, expr->getBase(),
+                                              expr->getName(),
+                                              expr->getFunctionRefKind(),
+                                              expr->getOuterAlternatives());
+
+      // If this is a direct reference to a property, handle the potential
+      // implicit member chain here. If this is part of a function application,
+      // the chain will be handled up the tree by visitApplyExpr, so no
+      // additional constraints are necessary here.
+      if (expr->getFunctionRefKind() == FunctionRefKind::Unapplied) {
+        auto memberLocator = CS.getConstraintLocator(expr,
+                                                     ConstraintLocator::Member);
+
+        return addImplicitMemberChainConstraints(expr, resultTy, memberLocator);
+      } else {
+        return resultTy;
+      }
     }
 
     Type visitUnresolvedSpecializeExpr(UnresolvedSpecializeExpr *expr) {
@@ -2905,6 +2953,14 @@ namespace {
         resultType = fixedType;
       }
 
+      // If the ApplyExpr is part of a chain (and not the base), add the
+      // appropriate constraints.
+      if (expr->getChainBase() != expr) {
+        auto locator = CS.getConstraintLocator(expr,
+                                            ConstraintLocator::FunctionResult);
+        addImplicitMemberChainConstraints(expr, resultType, locator);
+      }
+
       return resultType;
     }
 
@@ -3220,7 +3276,7 @@ namespace {
       CS.addConstraint(ConstraintKind::OptionalObject,
                        CS.getType(expr->getSubExpr()), objectTy,
                        locator);
-      return objectTy;
+      return addImplicitMemberChainConstraints(expr, objectTy, locator);
     }
     
     Type visitOptionalEvaluationExpr(OptionalEvaluationExpr *expr) {

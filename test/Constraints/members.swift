@@ -138,6 +138,131 @@ func goo() {
 }
 
 ////
+// Implicit member chains
+////
+
+struct ImplicitMembers {
+    static var implicit = ImplicitMembers()
+    static func createImplicit() -> ImplicitMembers {
+        ImplicitMembers()
+    }
+
+    static var optional: ImplicitMembers? = ImplicitMembers()
+    static func createOptional() -> ImplicitMembers? {
+        ImplicitMembers()
+    }
+
+    var another: ImplicitMembers { ImplicitMembers() }
+
+    func getAnother() -> ImplicitMembers {
+        ImplicitMembers()
+    }
+
+    func getAnother(arg: Int) -> ImplicitMembers {
+        ImplicitMembers()
+    }
+
+    var anotherOptional: ImplicitMembers? { ImplicitMembers() }
+
+    func getAnotherOptional() -> ImplicitMembers? {
+        ImplicitMembers()
+    }
+
+    func getAnotherOptional(arg: Int) -> ImplicitMembers? {
+        ImplicitMembers()
+    }
+}
+
+let _: ImplicitMembers = .implicit
+let _: ImplicitMembers? = .implicit
+let _: ImplicitMembers? = .optional
+
+let _: ImplicitMembers = .implicit.another.another
+let _: ImplicitMembers = .createImplicit().another.another
+let _: ImplicitMembers = .init().another.another
+
+let _: ImplicitMembers = .implicit.getAnother().another
+let _: ImplicitMembers = .createImplicit().getAnother().another
+let _: ImplicitMembers = .init().getAnother().another
+
+let _: ImplicitMembers = .implicit.getAnother(arg: 0).another
+let _: ImplicitMembers = .createImplicit().getAnother(arg: 0).another
+let _: ImplicitMembers = .init().getAnother(arg: 0).another
+
+let _: ImplicitMembers = .implicit.another.getAnother()
+let _: ImplicitMembers = .createImplicit().another.getAnother()
+let _: ImplicitMembers = .init().another.getAnother()
+
+let _: ImplicitMembers = .implicit.another.getAnother(arg: 0)
+let _: ImplicitMembers = .createImplicit().another.getAnother(arg: 0)
+let _: ImplicitMembers = .init().another.getAnother(arg: 0)
+
+let _: ImplicitMembers = .implicit.getAnother().getAnother(arg: 0)
+let _: ImplicitMembers = .createImplicit().getAnother().getAnother(arg: 0)
+let _: ImplicitMembers = .init().getAnother().getAnother(arg: 0)
+
+let _: ImplicitMembers = .implicit.getAnother().getAnother(arg: 0).another
+let _: ImplicitMembers = .createImplicit().getAnother().getAnother(arg: 0).another
+let _: ImplicitMembers = .init().getAnother().getAnother(arg: 0).another
+
+let _: ImplicitMembers = .implicit.another.getAnother().getAnother(arg: 0)
+let _: ImplicitMembers = .createImplicit().another.getAnother().getAnother(arg: 0)
+let _: ImplicitMembers = .init().another.getAnother().getAnother(arg: 0)
+
+let _: ImplicitMembers = .implicit.another.another.another.another.another
+let _: ImplicitMembers = .implicit.getAnother().getAnother().getAnother().getAnother().getAnother()
+let _: ImplicitMembers = .implicit.getAnother(arg: 0).getAnother(arg: 0).getAnother(arg: 0).getAnother(arg: 0).getAnother(arg: 0)
+
+let _: ImplicitMembers? = .implicit.another
+let _: ImplicitMembers? = .implicit?.anotherOptional
+
+let _: ImplicitMembers? = .optional
+let _: ImplicitMembers? = .optional?.another
+let _: ImplicitMembers? = .optional?.anotherOptional
+let _: ImplicitMembers? = .optional?.getAnother()
+let _: ImplicitMembers? = .optional?.getAnotherOptional()
+
+struct ImplicitGeneric<T> {
+    static var implicit: ImplicitGeneric<T> { ImplicitGeneric<T>() }
+    var another: ImplicitGeneric<T> { ImplicitGeneric<T>() }
+    func getAnother() -> ImplicitGeneric<T> {
+        ImplicitGeneric<T>()
+    }
+}
+
+extension ImplicitGeneric where T == Int {
+    static var implicitInt: ImplicitGeneric<Int> { ImplicitGeneric<Int>() }
+    var anotherInt: ImplicitGeneric<Int> { ImplicitGeneric<Int>() }
+    func getAnotherInt() -> ImplicitGeneric<Int> {
+        ImplicitGeneric<Int>()
+    }
+}
+
+extension ImplicitGeneric where T == String {
+    static var implicitString: ImplicitGeneric<String> { ImplicitGeneric<String>() }
+    var anotherString: ImplicitGeneric<String> { ImplicitGeneric<String>() }
+    var anotherStringInt: ImplicitGeneric<Int> { ImplicitGeneric<Int>() }
+    func getAnotherString() -> ImplicitGeneric<String> {
+        ImplicitGeneric<String>()
+    }
+}
+
+func implicit<T>(_ arg: ImplicitGeneric<T>) {}
+
+implicit(.implicitInt)
+implicit(.implicit.anotherInt)
+implicit(.implicit.another.anotherInt)
+implicit(.implicit.anotherString.anotherStringInt) // expected-error {{type of expression is ambiguous without more context}}
+implicit(.implicit.getAnotherInt())
+implicit(.implicit.another.getAnotherInt())
+implicit(.implicit.anotherString.anotherStringInt) // expected-error {{type of expression is ambiguous without more context}}
+implicit(.implicit.getAnother().anotherInt)
+implicit(.implicit.getAnotherString().anotherStringInt) // expected-error {{type of expression is ambiguous without more context}}
+implicit(.implicit.getAnotherInt())
+implicit(.implicit.getAnother().getAnotherInt())
+implicit(.implicit.getAnotherString().anotherStringInt) // expected-error {{type of expression is ambiguous without more context}}
+
+////
 // Misc ambiguities
 ////
 

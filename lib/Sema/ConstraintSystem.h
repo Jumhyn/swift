@@ -2710,6 +2710,17 @@ public:
   bool isDeclUnavailable(const Decl *D,
                          ConstraintLocator *locator = nullptr) const;
 
+  /// Whether this expression sits at the end of a chain of member accesses.
+  bool isMemberChainTail(Expr *expr) {
+    assert(expr && "isMemberChainTail called with null expr!");
+    // If this expression is part of a different chain than its parent, it
+    // must be the tail of the chain.
+    Expr *parent = getParentExpr(expr);
+    Expr *base = expr->getMemberChainBase();
+
+    return parent && (base != parent->getMemberChainBase());
+  }
+
 public:
 
   /// Whether we should attempt to fix problems.
