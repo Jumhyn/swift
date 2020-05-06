@@ -537,9 +537,6 @@ public:
   /// expressions do not participate in member chains, and just return \c this.
   Expr *getMemberChainBase();
 
-  /// Whether this expression is the tail of a member chain.
-  bool isMemberChainTail();
-
   /// Produce a mapping from each subexpression to its parent
   /// expression, with the provided expression serving as the root of
   /// the parent map.

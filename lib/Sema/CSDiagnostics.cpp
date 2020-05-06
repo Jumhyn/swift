@@ -2034,6 +2034,7 @@ bool ContextualFailure::diagnoseAsError() {
     return false;
   }
 
+  case ConstraintLocator::UnresolvedMember:
   case ConstraintLocator::RValueAdjustment: {
     auto &solution = getSolution();
     auto overload = getOverloadChoiceIfAvailable(

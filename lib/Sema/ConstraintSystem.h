@@ -1732,6 +1732,9 @@ private:
   llvm::DenseMap<const ParamDecl *, TypeVariableType *>
     OpenedParameterTypes;
 
+  /// Maps \c UnresolvedMemberExprs to their (implicit) base types.
+  llvm::MapVector<UnresolvedMemberExpr *, Type> UnresolvedMemberBaseTypes;
+
   /// The set of constraint restrictions used to reach the
   /// current constraint system.
   ///
@@ -2560,6 +2563,17 @@ public:
     return CTP_Unused;
   }
 
+  void setUnresolvedMemberBaseType(UnresolvedMemberExpr *expr, Type type) {
+    assert(expr && "Expected non-null expression");
+    assert(type && "Expected non-null type");
+    UnresolvedMemberBaseTypes[expr] = type;
+  }
+
+  Type getUnresolvedMemberBaseType(UnresolvedMemberExpr *expr) {
+    assert(expr && "Expected non-null expression");
+    return UnresolvedMemberBaseTypes.find(expr)->second;
+  }
+
   void setSolutionApplicationTarget(
       SolutionApplicationTargetsKey key, SolutionApplicationTarget target) {
     assert(key && "Expected non-null solution application target key!");
@@ -2713,12 +2727,12 @@ public:
   /// Whether this expression sits at the end of a chain of member accesses.
   bool isMemberChainTail(Expr *expr) {
     assert(expr && "isMemberChainTail called with null expr!");
-    // If this expression is part of a different chain than its parent, it
-    // must be the tail of the chain.
+    // If this expression is part of a different chain than its parent (or, if
+    // it has no parent expr), it must be the tail of the chain.
     Expr *parent = getParentExpr(expr);
     Expr *base = expr->getMemberChainBase();
 
-    return parent && (base != parent->getMemberChainBase());
+    return parent == nullptr || (base != parent->getMemberChainBase());
   }
 
 public:

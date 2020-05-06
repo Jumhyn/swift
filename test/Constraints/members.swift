@@ -141,7 +141,20 @@ func goo() {
 // Implicit member chains
 ////
 
-struct ImplicitMembers {
+struct ImplicitMembers: Equatable {
+    struct Other {
+        var implicit: ImplicitMembers { ImplicitMembers() }
+    }
+
+    static var other = Other()
+    static func createOther() -> Other {
+        Other()
+    }
+    var anotherOther: Other { Other() }
+    func getAnotherOther() -> Other {
+        Other()
+    }
+
     static var implicit = ImplicitMembers()
     static func createImplicit() -> ImplicitMembers {
         ImplicitMembers()
@@ -213,14 +226,51 @@ let _: ImplicitMembers = .implicit.another.another.another.another.another
 let _: ImplicitMembers = .implicit.getAnother().getAnother().getAnother().getAnother().getAnother()
 let _: ImplicitMembers = .implicit.getAnother(arg: 0).getAnother(arg: 0).getAnother(arg: 0).getAnother(arg: 0).getAnother(arg: 0)
 
+let _: ImplicitMembers = .optional!
+let _: ImplicitMembers = .optional!.another
+let _: ImplicitMembers = .createOptional()!.another
+let _: ImplicitMembers = .optional!.anotherOptional!
+let _: ImplicitMembers = .createOptional()!.anotherOptional!
+let _: ImplicitMembers = .optional!.getAnotherOptional()!
+let _: ImplicitMembers = .createOptional()!.getAnotherOptional()!
+
+let _: ImplicitMembers = .other // expected-error {{member 'other' in 'ImplicitMembers' produces result of type 'ImplicitMembers.Other', but context expects 'ImplicitMembers'}}
+
+// FIXME: These should ideally offer better diagnostics (like the above) at the
+// point where the member access type deviates from the contextual type.
+let _: ImplicitMembers = .implicit.anotherOther // expected-error {{type of expression is ambiguous without more context}}
+let _: ImplicitMembers = .other.implicit // expected-error {{type of expression is ambiguous without more context}}
+let _: ImplicitMembers = .implicit.anotherOther.another // expected-error {{type of expression is ambiguous without more context}}
+let _: ImplicitMembers = .implicit.getAnotherOther() // expected-error {{type of expression is ambiguous without more context}}
+let _: ImplicitMembers = .createOther().implicit // expected-error {{type of expression is ambiguous without more context}}
+let _: ImplicitMembers = .implicit.getAnotherOther().another // expected-error {{type of expression is ambiguous without more context}}
+
 let _: ImplicitMembers? = .implicit.another
-let _: ImplicitMembers? = .implicit?.anotherOptional
+let _: ImplicitMembers? = .implicit.anotherOptional
 
 let _: ImplicitMembers? = .optional
 let _: ImplicitMembers? = .optional?.another
 let _: ImplicitMembers? = .optional?.anotherOptional
 let _: ImplicitMembers? = .optional?.getAnother()
 let _: ImplicitMembers? = .optional?.getAnotherOptional()
+let _: ImplicitMembers? = .optional?.anotherOptional?.another
+let _: ImplicitMembers? = .optional?.getAnotherOptional()?.another
+let _: ImplicitMembers? = .createOptional()
+let _: ImplicitMembers? = .createOptional()?.another
+let _: ImplicitMembers? = .createOptional()?.anotherOptional
+let _: ImplicitMembers? = .createOptional()?.getAnother()
+let _: ImplicitMembers? = .createOptional()?.getAnotherOptional()
+let _: ImplicitMembers? = .createOptional()?.anotherOptional?.another
+let _: ImplicitMembers? = .createOptional()?.getAnotherOptional()?.another
+
+func implicit(_ i: inout ImplicitMembers) {
+    if i == .implicit {}
+    if i == .implicit.another {}
+    if i == .implicit.getAnother() {}
+    if i == .optional?.another {}
+    if i == .optional!.another {}
+    if i == .createOptional()?.another {}
+}
 
 struct ImplicitGeneric<T> {
     static var implicit: ImplicitGeneric<T> { ImplicitGeneric<T>() }

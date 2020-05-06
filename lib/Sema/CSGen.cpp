@@ -991,29 +991,39 @@ namespace {
     }
 
     Type addImplicitMemberChainConstraints(Expr *expr, Type resultTy,
-                                          ConstraintLocator *locator) {
+                                           Type baseTy,
+                                           ConstraintLocator *resultLocator,
+                                           ConstraintLocator *baseLocator) {
       // If this is a member chain hanging off of an implicit member expression,
-      // the whole chain must have the same type.
-      auto *base = expr->getMemberChainBase();
-      if (auto *UME = dyn_cast<UnresolvedMemberExpr>(base)) {
-        Type baseTy = CS.getType(UME);
+      // the whole chain must have the same type. resultTy and baseTy here refer
+      // to the base and result of an individual member of the chain, e.g., a
+      // single member access or method call.
+      auto *chainBaseExpr = expr->getMemberChainBase();
+      if (auto *UME = dyn_cast<UnresolvedMemberExpr>(chainBaseExpr)) {
+        // Create a new type variable representing the result of this member of
+        // the chain.
+        auto chainMemberTy = CS.createTypeVariable(resultLocator,
+                                                   TVO_CanBindToNoEscape);
 
-        // All members of the chain must be convertible to the base type
-        CS.addConstraint(ConstraintKind::Conversion, resultTy, baseTy, locator);
-
-        // If this is the tail of a chain, create a new type variable to
-        // represent the result of the whole chain. In addtion to this chain
-        // element being convertible to the chain result, the chain result must
-        // itself be *equal* to the base type.
+        // The base and result types of the member access must be convertible to
+        // the next element of the chain.
+        CS.addConstraint(ConstraintKind::Conversion, baseTy, chainMemberTy,
+                         baseLocator);
+        CS.addConstraint(ConstraintKind::Equal, resultTy, chainMemberTy,
+                         CS.getConstraintLocator(expr));
+        // If this is the tail of a chain, the chain base type must be
+        // convertible to the contextual type (which is the result type of the
+        // whole chain).
         if (CS.isMemberChainTail(expr)) {
-          unsigned options = TVO_CanBindToLValue | TVO_CanBindToNoEscape;
-          auto chainResultTy = CS.createTypeVariable(locator, options);
+          auto chainBaseTy = CS.getUnresolvedMemberBaseType(UME);
 
-          CS.addConstraint(ConstraintKind::Conversion, resultTy, chainResultTy,
-                           locator);
-          CS.addConstraint(ConstraintKind::Equal, chainResultTy, baseTy,
-                           locator);
+          auto chainBaseLocator = CS.getConstraintLocator(UME,
+                                              ConstraintLocator::MemberRefBase);
+          CS.addConstraint(ConstraintKind::Conversion, chainBaseTy,
+                           chainMemberTy, chainBaseLocator);
         }
+
+        return chainMemberTy;
       }
 
       return resultTy;
@@ -1575,6 +1585,8 @@ namespace {
       // should be marked as a potential hole.
       auto baseTy = CS.createTypeVariable(baseLocator, TVO_CanBindToNoEscape |
                                                            TVO_CanBindToHole);
+      CS.setUnresolvedMemberBaseType(expr, baseTy);
+
       auto memberTy = CS.createTypeVariable(
           memberLocator, TVO_CanBindToLValue | TVO_CanBindToNoEscape);
 
@@ -1598,8 +1610,8 @@ namespace {
         auto outputTy = CS.createTypeVariable(
             CS.getConstraintLocator(expr, ConstraintLocator::FunctionResult),
             TVO_CanBindToNoEscape);
-        CS.addConstraint(ConstraintKind::Conversion, outputTy, baseTy,
-          CS.getConstraintLocator(expr, ConstraintLocator::RValueAdjustment));
+        CS.addConstraint(ConstraintKind::Conversion, baseTy, outputTy,
+                         baseLocator);
 
         // The function/enum case must be callable with the given argument.
 
@@ -1617,26 +1629,18 @@ namespace {
         associateArgumentLabels(
             CS.getConstraintLocator(expr),
             {expr->getArgumentLabels(), expr->hasTrailingClosure()});
-        return baseTy;
+        return outputTy;
       }
-
-      // Otherwise, the member needs to be convertible to the base type.
-      CS.addConstraint(ConstraintKind::Conversion, memberTy, baseTy,
-        CS.getConstraintLocator(expr, ConstraintLocator::RValueAdjustment));
       
-      // The member type also needs to be convertible to the context type, which
-      // preserves lvalue-ness.
+      // The member type needs to equal the contextual type.
       auto resultTy = CS.createTypeVariable(memberLocator,
-                                            TVO_CanBindToLValue |
                                             TVO_CanBindToNoEscape);
-      CS.addConstraint(ConstraintKind::Conversion, memberTy, resultTy,
+      CS.addConstraint(ConstraintKind::Equal, memberTy, resultTy,
                        memberLocator);
 
-      // If there are no other accesses chained off this expression, baseTy
-      // must equal resultTy. Otherwise, conversion is okay.
-      auto kind = CS.isMemberChainTail(expr) ? ConstraintKind::Equal
-                                             : ConstraintKind::Conversion;
-      CS.addConstraint(kind, resultTy, baseTy, memberLocator);
+      // The base type must be convertible to the contextual type.
+      CS.addConstraint(ConstraintKind::Conversion, baseTy, resultTy,
+                       baseLocator);
 
       return resultTy;
     }
@@ -1714,8 +1718,12 @@ namespace {
       if (expr->getFunctionRefKind() == FunctionRefKind::Unapplied) {
         auto memberLocator = CS.getConstraintLocator(expr,
                                                      ConstraintLocator::Member);
+        auto baseLocator = CS.getConstraintLocator(expr,
+                                              ConstraintLocator::MemberRefBase);
+        auto baseTy = CS.getType(expr->getBase());
 
-        return addImplicitMemberChainConstraints(expr, resultTy, memberLocator);
+        return addImplicitMemberChainConstraints(expr, resultTy, baseTy,
+                                                 memberLocator, baseLocator);
       } else {
         return resultTy;
       }
@@ -2953,12 +2961,16 @@ namespace {
         resultType = fixedType;
       }
 
-      // If the ApplyExpr is part of a chain (and not the base), add the
-      // appropriate constraints.
-      if (expr->getChainBase() != expr) {
-        auto locator = CS.getConstraintLocator(expr,
+      // If the ApplyExpr is part of a member access chain, add the appropriate
+      // constraints.
+      if (auto *UDE = dyn_cast<UnresolvedDotExpr>(fnExpr)) {
+        auto resultLocator = CS.getConstraintLocator(expr,
                                             ConstraintLocator::FunctionResult);
-        addImplicitMemberChainConstraints(expr, resultType, locator);
+        auto baseLocator = CS.getConstraintLocator(UDE->getBase(),
+                                              ConstraintLocator::MemberRefBase);
+        auto baseTy = CS.getType(UDE->getBase());
+        return addImplicitMemberChainConstraints(expr, resultType, baseTy,
+                                                 resultLocator, baseLocator);
       }
 
       return resultType;
@@ -3276,7 +3288,7 @@ namespace {
       CS.addConstraint(ConstraintKind::OptionalObject,
                        CS.getType(expr->getSubExpr()), objectTy,
                        locator);
-      return addImplicitMemberChainConstraints(expr, objectTy, locator);
+      return objectTy;
     }
     
     Type visitOptionalEvaluationExpr(OptionalEvaluationExpr *expr) {
