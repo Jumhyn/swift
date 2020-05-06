@@ -1009,23 +1009,13 @@ namespace {
         // the next element of the chain.
         CS.addConstraint(ConstraintKind::Conversion, baseTy, chainMemberTy,
                          baseLocator);
-        CS.addConstraint(ConstraintKind::Equal, resultTy, chainMemberTy,
-                         CS.getConstraintLocator(expr));
-        // If this is the tail of a chain, the chain base type must be
-        // convertible to the contextual type (which is the result type of the
-        // whole chain).
-        if (CS.isMemberChainTail(expr)) {
-          auto chainBaseTy = CS.getUnresolvedMemberBaseType(UME);
-
-          auto chainBaseLocator = CS.getConstraintLocator(UME,
-                                              ConstraintLocator::MemberRefBase);
-          CS.addConstraint(ConstraintKind::Conversion, chainBaseTy,
-                           chainMemberTy, chainBaseLocator);
-        }
+        CS.addConstraint(ConstraintKind::OneWayEqual, resultTy, chainMemberTy,
+                         resultLocator, true);
 
         return chainMemberTy;
       }
 
+      // Otherwise, just use the proposed result type.
       return resultTy;
     }
 
@@ -1632,17 +1622,10 @@ namespace {
         return outputTy;
       }
       
-      // The member type needs to equal the contextual type.
-      auto resultTy = CS.createTypeVariable(memberLocator,
-                                            TVO_CanBindToNoEscape);
-      CS.addConstraint(ConstraintKind::Equal, memberTy, resultTy,
-                       memberLocator);
-
-      // The base type must be convertible to the contextual type.
-      CS.addConstraint(ConstraintKind::Conversion, baseTy, resultTy,
-                       baseLocator);
-
-      return resultTy;
+      // Otherwise, add the usual constraints for an element of an implicit
+      // member chain.
+      return addImplicitMemberChainConstraints(expr, memberTy, baseTy,
+                                               memberLocator, baseLocator);
     }
 
     Type visitUnresolvedDotExpr(UnresolvedDotExpr *expr) {

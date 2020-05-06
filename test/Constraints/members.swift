@@ -164,6 +164,7 @@ struct ImplicitMembers: Equatable {
     static func createOptional() -> ImplicitMembers? {
         ImplicitMembers()
     }
+    static var superOptional: ImplicitMembers??? = ImplicitMembers()
 
     var another: ImplicitMembers { ImplicitMembers() }
 
@@ -235,11 +236,13 @@ let _: ImplicitMembers = .optional!.getAnotherOptional()!
 let _: ImplicitMembers = .createOptional()!.getAnotherOptional()!
 
 let _: ImplicitMembers = .other // expected-error {{member 'other' in 'ImplicitMembers' produces result of type 'ImplicitMembers.Other', but context expects 'ImplicitMembers'}}
+// FIXME: We should only offer one or the other of the below diagnostics (probably the first)
+let _: ImplicitMembers = .other.implicit // expected-error {{member 'other' in 'ImplicitMembers' produces result of type 'ImplicitMembers.Other', but context expects 'ImplicitMembers'}} expected-error {{static member 'implicit' cannot be used on instance of type 'ImplicitMembers'}}
 
 // FIXME: These should ideally offer better diagnostics (like the above) at the
 // point where the member access type deviates from the contextual type.
 let _: ImplicitMembers = .implicit.anotherOther // expected-error {{type of expression is ambiguous without more context}}
-let _: ImplicitMembers = .other.implicit // expected-error {{type of expression is ambiguous without more context}}
+
 let _: ImplicitMembers = .implicit.anotherOther.another // expected-error {{type of expression is ambiguous without more context}}
 let _: ImplicitMembers = .implicit.getAnotherOther() // expected-error {{type of expression is ambiguous without more context}}
 let _: ImplicitMembers = .createOther().implicit // expected-error {{type of expression is ambiguous without more context}}
@@ -262,6 +265,7 @@ let _: ImplicitMembers? = .createOptional()?.getAnother()
 let _: ImplicitMembers? = .createOptional()?.getAnotherOptional()
 let _: ImplicitMembers? = .createOptional()?.anotherOptional?.another
 let _: ImplicitMembers? = .createOptional()?.getAnotherOptional()?.another
+let _: ImplicitMembers? = .superOptional???.another
 
 func implicit(_ i: inout ImplicitMembers) {
     if i == .implicit {}
