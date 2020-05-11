@@ -212,7 +212,7 @@ implicit(.implicitString.anotherStringInt)
 // Member types along the chain can have different generic arguments
 implicit(.implicit.anotherIntString.anotherStringInt)
 
-implicit(.implicit.anotherString.anotherStringInt) // expected-error {{type of expression is ambiguous without more context}}
-implicit(.implicit.getAnotherString().anotherStringInt) // expected-error {{type of expression is ambiguous without more context}}
-implicit(.implicit.anotherString.getAnotherStringInt()) // expected-error {{type of expression is ambiguous without more context}}
-implicit(.implicit.getAnotherString().getAnotherStringInt()) // expected-error {{type of expression is ambiguous without more context}}
+implicit(.implicit.anotherString.anotherStringInt)
+implicit(.implicit.getAnotherString().anotherStringInt)
+implicit(.implicit.anotherString.getAnotherStringInt())
+implicit(.implicit.getAnotherString().getAnotherStringInt())
