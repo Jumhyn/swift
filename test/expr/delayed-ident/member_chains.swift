@@ -173,6 +173,7 @@ struct ImplicitGeneric<T> {
     func getAnother() -> ImplicitGeneric<T> {
         ImplicitGeneric<T>()
     }
+    static var implicitGenericInt: ImplicitGeneric<Int> { ImplicitGeneric<Int>() }
 }
 
 extension ImplicitGeneric where T == Int {
@@ -200,6 +201,7 @@ extension ImplicitGeneric where T == String {
 func implicit<T>(_ arg: ImplicitGeneric<T>) {}
 
 implicit(.implicitInt)
+implicit(.implicitGenericInt)
 implicit(.implicit.anotherInt)
 implicit(.implicit.anotherInt.another)
 implicit(.implicit.another.anotherInt)
