@@ -4231,34 +4231,27 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
       auto type = typeVar1 ? type2 : type1;
 
       // If this is a constraint for the base of an UnresolvedMemberExpr, we
-      // should only consider it if this is the only constraint for this type
-      // variable. This delays binding the head and tail of an unresolved member
-      // chain for as long as possible, so that generic parameter inference can
-      // be worked out first.
+      // don't want to bind generic params between the head and the tail.
       if (auto *UME = getAsExpr<UnresolvedMemberExpr>(locator.getAnchor())) {
         auto baseLocator = getConstraintLocator(UME,
                                               ConstraintLocator::MemberRefBase);
         if (baseLocator == getConstraintLocator(locator)) {
           if (auto generic2 = type2->getAs<BoundGenericType>()) {
-            SmallVector<Type, 4> args1;
-            auto args2 = generic2->getGenericArgs();
-            for (unsigned i = 0; i < args2.size(); ++i) {
-              auto *argLocator = getConstraintLocator(locator,
+            if (!isa<OptionalType>(type2.getPointer())) {
+              SmallVector<Type, 4> args1;
+              auto args2 = generic2->getGenericArgs();
+              for (unsigned i = 0; i < args2.size(); ++i) {
+                auto *argLocator = getConstraintLocator(locator,
                                             LocatorPathElt::GenericArgument(i));
-              args1.push_back(createTypeVariable(argLocator, 0));
-            }
+                args1.push_back(createTypeVariable(argLocator, 0));
+              }
 
-            Type generic1;
-            if (auto opt2 = dyn_cast<OptionalType>(type2.getPointer())) {
-              assert(args1.size() == 1);
-              generic1 = OptionalType::get(args1.back());
+              auto generic1 = BoundGenericType::get(generic2->getDecl(),
+                                                    generic2->getParent(),
+                                                    args1);
+              return matchTypesBindTypeVar(typeVar, generic1, kind, flags,
+                                           locator, formUnsolvedResult);
             }
-            else {
-              generic1 = BoundGenericType::get(generic2->getDecl(),
-                                               generic2->getParent(), args1);
-            }
-            return matchTypesBindTypeVar(typeVar, generic1, kind, flags,
-                                         locator, formUnsolvedResult);
           }
         }
       }
