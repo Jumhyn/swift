@@ -4207,6 +4207,18 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
               != rep2->getImpl().canBindToLValue())
           return formUnsolvedResult();
 
+        // Instead of merging the two type variables at the head and tail of
+        // an implicit member chain, let the tail get resolved to a concrete
+        // type first. This way, if it's a generic type, we can defer
+        // binding the type params to one another, allowing for different
+        // params at the head and tail of the chain.
+        SmallVector<LocatorPathElt, 4> path;
+        auto anchor = locator.getLocatorParts(path);
+        if (auto *UME = getAsExpr<UnresolvedMemberExpr>(anchor))
+          if (path.size() == 1)
+            if (path.back().getKind() == ConstraintLocator::MemberRefBase)
+                return formUnsolvedResult();
+
         // Merge the equivalence classes corresponding to these two variables.
         mergeEquivalenceClasses(rep1, rep2);
         return getTypeMatchSuccess();
@@ -4217,6 +4229,39 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
 
       auto *typeVar = typeVar1 ? typeVar1 : typeVar2;
       auto type = typeVar1 ? type2 : type1;
+
+      // If this is a constraint for the base of an UnresolvedMemberExpr, we
+      // should only consider it if this is the only constraint for this type
+      // variable. This delays binding the head and tail of an unresolved member
+      // chain for as long as possible, so that generic parameter inference can
+      // be worked out first.
+      if (auto *UME = getAsExpr<UnresolvedMemberExpr>(locator.getAnchor())) {
+        auto baseLocator = getConstraintLocator(UME,
+                                              ConstraintLocator::MemberRefBase);
+        if (baseLocator == getConstraintLocator(locator)) {
+          if (auto generic2 = type2->getAs<BoundGenericType>()) {
+            SmallVector<Type, 4> args1;
+            auto args2 = generic2->getGenericArgs();
+            for (unsigned i = 0; i < args2.size(); ++i) {
+              auto *argLocator = getConstraintLocator(locator,
+                                            LocatorPathElt::GenericArgument(i));
+              args1.push_back(createTypeVariable(argLocator, 0));
+            }
+
+            Type generic1;
+            if (auto opt2 = dyn_cast<OptionalType>(type2.getPointer())) {
+              assert(args1.size() == 1);
+              generic1 = OptionalType::get(args1.back());
+            }
+            else {
+              generic1 = BoundGenericType::get(generic2->getDecl(),
+                                               generic2->getParent(), args1);
+            }
+            return matchTypesBindTypeVar(typeVar, generic1, kind, flags,
+                                         locator, formUnsolvedResult);
+          }
+        }
+      }
 
       return matchTypesBindTypeVar(typeVar, type, kind, flags, locator,
                                    formUnsolvedResult);
