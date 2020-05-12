@@ -4241,9 +4241,13 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
               SmallVector<Type, 4> args1;
               auto args2 = generic2->getGenericArgs();
               for (unsigned i = 0; i < args2.size(); ++i) {
+                auto arg2 = args2[i];
                 auto *argLocator = getConstraintLocator(locator,
                                             LocatorPathElt::GenericArgument(i));
-                args1.push_back(createTypeVariable(argLocator, 0));
+                auto arg1 = createTypeVariable(argLocator, 0);
+                addConstraint(ConstraintKind::Defaultable, arg1, arg2,
+                              argLocator);
+                args1.push_back(arg1);
               }
 
               auto generic1 = BoundGenericType::get(generic2->getDecl(),
