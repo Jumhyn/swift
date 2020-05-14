@@ -669,8 +669,10 @@ enum ScoreKind {
   /// A non-trivial function conversion.
   SK_FunctionConversion,
   /// A literal expression bound to a non-default literal type.
-  SK_NonDefaultLiteral,
+  SK_NonDefaultGenericParam,
   /// An implicit upcast conversion between collection types.
+  SK_NonDefaultLiteral,
+  /// A generic parameter was bound to a non-default result.
   SK_CollectionUpcastConversion,
   /// A value-to-optional conversion.
   SK_ValueToOptional,

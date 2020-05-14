@@ -7016,6 +7016,26 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyDefaultableConstraint(
     return SolutionKind::Unsolved;
   }
 
+  // If we're binding an implicit member chain's base based on a
+  // non-defaultable binding, increase the score.
+  SmallVector<LocatorPathElt, 4> path;
+  auto anchor = locator.getLocatorParts(path);
+  if (isExpr<UnresolvedMemberExpr>(anchor)) {
+    if (path.back().getKind() == ConstraintLocator::GenericArgument) {
+      if (path.size() == 2) {
+        path.pop_back();
+        if (path.back().getKind() == ConstraintLocator::MemberRefBase) {
+          second = getFixedTypeRecursive(second, flags, true);
+          if (second->isTypeVariableOrMember())
+            return SolutionKind::Unsolved;
+          if (!first->isEqual(second)) {
+            increaseScore(SK_NonDefaultGenericParam);
+          }
+        }
+      }
+    }
+  }
+
   // Otherwise, any type is fine.
   return SolutionKind::Solved;
 }

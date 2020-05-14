@@ -575,7 +575,21 @@ ConstraintSystem::getPotentialBindings(TypeVariableType *typeVar) const {
     }
 
     case ConstraintKind::Defaultable:
-    case ConstraintKind::DefaultClosureType:
+    case ConstraintKind::DefaultClosureType: {
+      auto locator = constraint->getLocator();
+      if (isExpr<UnresolvedMemberExpr>(locator->getAnchor())) {
+        if (locator->isLastElement<LocatorPathElt::GenericArgument>()) {
+          auto path = locator->getPath().drop_back();
+          if (path.back().getKind() == ConstraintLocator::MemberRefBase) {
+            Type type = constraint->getSecondType();
+            if (!exactTypes.insert(type->getCanonicalType()).second)
+              break;
+
+            result.addPotentialBinding({type, AllowedBindingKind::Exact, constraint});
+            break;
+          }
+        }
+      }
       // Do these in a separate pass.
       if (getFixedTypeRecursive(constraint->getFirstType(), true)
               ->getAs<TypeVariableType>() == typeVar) {
@@ -583,7 +597,7 @@ ConstraintSystem::getPotentialBindings(TypeVariableType *typeVar) const {
         hasNonDependentMemberRelationalConstraints = true;
       }
       break;
-
+    }
     case ConstraintKind::Disjunction:
       // FIXME: Recurse into these constraints to see whether this
       // type variable is fully bound by any of them.

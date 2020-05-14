@@ -72,7 +72,11 @@ void ConstraintSystem::increaseScore(ScoreKind kind, unsigned value) {
     case SK_NonDefaultLiteral:
       log << "non-default literal";
       break;
-        
+
+    case SK_NonDefaultGenericParam:
+      log << "non-default generic param";
+      break;
+
     case SK_CollectionUpcastConversion:
       log << "collection upcast conversion";
       break;

@@ -170,6 +170,12 @@ enum class ConstraintKind : char {
   /// - Handled specially by binding inference, specifically contributes
   ///   to the bindings only if there are no contextual types available.
   DefaultClosureType,
+
+  /// The nominal type of the first type is equal to the nominal type of the
+  /// second, but any generic arguments may differ. Cannot be resolved until
+  /// at least the "outer layer" of the second type has been resolved to a
+  /// concrete type. After which it is treated like an equality constraint.
+  NominalEqual,
 };
 
 /// Classification of the different kinds of constraints.
@@ -550,6 +556,7 @@ public:
     case ConstraintKind::OpaqueUnderlyingType:
     case ConstraintKind::OneWayEqual:
     case ConstraintKind::DefaultClosureType:
+    case ConstraintKind::NominalEqual:
       return ConstraintClassification::Relational;
 
     case ConstraintKind::ValueMember:
