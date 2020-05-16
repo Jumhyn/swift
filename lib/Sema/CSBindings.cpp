@@ -39,7 +39,20 @@ void ConstraintSystem::inferTransitiveSupertypeBindings(
                   return rhs->getAs<TypeVariableType>() == typeVar;
                 });
 
-  if (subtypeOf.empty())
+  llvm::SmallVector<Constraint *, 4> convertibleFrom;
+  if (!bindings.HasNonPreferredDefaultBindings)
+    llvm::copy_if(bindings.Sources, std::back_inserter(convertibleFrom),
+                  [&](const Constraint *constraint) -> bool {
+                    if (constraint->getKind() != ConstraintKind::Conversion &&
+                        constraint->getKind()
+                          != ConstraintKind::ArgumentConversion)
+                      return false;
+
+                    auto rhs = simplifyType(constraint->getSecondType());
+                    return rhs->getAs<TypeVariableType>() == typeVar;
+                  });
+
+  if (convertibleFrom.empty() && subtypeOf.empty())
     return;
 
   // We need to make sure that there are no duplicate bindings in the
@@ -48,36 +61,47 @@ void ConstraintSystem::inferTransitiveSupertypeBindings(
   for (const auto &binding : bindings.Bindings)
     existingTypes.insert(binding.BindingType->getCanonicalType());
 
-  for (auto *constraint : subtypeOf) {
-    auto *tv =
-        simplifyType(constraint->getFirstType())->getAs<TypeVariableType>();
-    if (!tv)
-      continue;
-
-    auto relatedBindings = inferredBindings.find(tv);
-    if (relatedBindings == inferredBindings.end())
-      continue;
-
-    for (auto &binding : relatedBindings->getSecond().Bindings) {
-      // We need the binding kind for the potential binding to
-      // either be Exact or Supertypes in order for it to make sense
-      // to add Supertype bindings based on the relationship between
-      // our type variables.
-      if (binding.Kind != AllowedBindingKind::Exact &&
-          binding.Kind != AllowedBindingKind::Supertypes)
+  auto addTransitiveBindings = [&](llvm::SmallVector<Constraint *, 4> sources,
+                                   AllowedBindingKind additionalAllowedKind) {
+    for (auto *constraint : sources) {
+      auto *tv =
+          simplifyType(constraint->getFirstType())->getAs<TypeVariableType>();
+      if (!tv)
         continue;
 
-      auto type = binding.BindingType;
-
-      if (!existingTypes.insert(type->getCanonicalType()).second)
+      auto relatedBindings = inferredBindings.find(tv);
+      if (relatedBindings == inferredBindings.end())
         continue;
 
-      if (ConstraintSystem::typeVarOccursInType(typeVar, type))
-        continue;
+      for (auto &binding : relatedBindings->getSecond().Bindings) {
+        // We need the binding kind for the potential binding to
+        // either be Exact or Supertypes in order for it to make sense
+        // to add Supertype bindings based on the relationship between
+        // our type variables.
+        if (binding.Kind != AllowedBindingKind::Exact &&
+            binding.Kind != additionalAllowedKind)
+          continue;
 
-      bindings.addPotentialBinding(
-          binding.withSameSource(type, AllowedBindingKind::Supertypes));
+        auto type = binding.BindingType;
+
+        if (!existingTypes.insert(type->getCanonicalType()).second)
+          continue;
+
+        if (ConstraintSystem::typeVarOccursInType(typeVar, type))
+          continue;
+
+        bindings.addPotentialBinding(
+            binding.withSameSource(type, AllowedBindingKind::Supertypes));
+      }
     }
+  };
+
+  if (!subtypeOf.empty()) {
+    addTransitiveBindings(subtypeOf, AllowedBindingKind::Supertypes);
+  }
+
+  if (!convertibleFrom.empty()) {
+    addTransitiveBindings(convertibleFrom, AllowedBindingKind::Subtypes);
   }
 }
 
@@ -201,6 +225,9 @@ void ConstraintSystem::PotentialBindings::addPotentialBinding(
 
   if (binding.isDefaultableBinding())
     ++NumDefaultableBindings;
+
+  if (!binding.isPreferredDefaultBinding())
+    HasNonPreferredDefaultBindings = true;
 
   Bindings.push_back(std::move(binding));
 }
@@ -487,7 +514,8 @@ ConstraintSystem::getPotentialBindings(TypeVariableType *typeVar) const {
     case ConstraintKind::Conversion:
     case ConstraintKind::ArgumentConversion:
     case ConstraintKind::OperatorArgumentConversion:
-    case ConstraintKind::OptionalObject: {
+    case ConstraintKind::OptionalObject:
+    case ConstraintKind::PreferredDefault: {
       // If there is a `bind param` constraint associated with
       // current type variable, result should be aware of that
       // fact. Binding set might be incomplete until
@@ -555,6 +583,7 @@ ConstraintSystem::getPotentialBindings(TypeVariableType *typeVar) const {
     case ConstraintKind::FunctionInput:
     case ConstraintKind::FunctionResult:
     case ConstraintKind::OpaqueUnderlyingType:
+    case ConstraintKind::NominalEqual:
       // Constraints from which we can't do anything.
       break;
 
@@ -576,20 +605,6 @@ ConstraintSystem::getPotentialBindings(TypeVariableType *typeVar) const {
 
     case ConstraintKind::Defaultable:
     case ConstraintKind::DefaultClosureType: {
-      auto locator = constraint->getLocator();
-      if (isExpr<UnresolvedMemberExpr>(locator->getAnchor())) {
-        if (locator->isLastElement<LocatorPathElt::GenericArgument>()) {
-          auto path = locator->getPath().drop_back();
-          if (path.back().getKind() == ConstraintLocator::MemberRefBase) {
-            Type type = constraint->getSecondType();
-            if (!exactTypes.insert(type->getCanonicalType()).second)
-              break;
-
-            result.addPotentialBinding({type, AllowedBindingKind::Exact, constraint});
-            break;
-          }
-        }
-      }
       // Do these in a separate pass.
       if (getFixedTypeRecursive(constraint->getFirstType(), true)
               ->getAs<TypeVariableType>() == typeVar) {

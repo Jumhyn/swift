@@ -65,6 +65,8 @@ func process2(_ callback: (Result<String, SomeError>) -> ()) {
     callback(.success(0).map { "\($0)" })
 }
 
+let _: Result<String, SomeError> = .success(0).map { "\($0)" }
+
 struct Adder<T: AdditiveArithmetic> {
     init(x: T, y: T) {}
     static func add<U: AdditiveArithmetic>(x: T, y: T) -> Adder<U> {

@@ -1148,17 +1148,6 @@ bool ConstraintGraph::contractEdges() {
         continue;
     }
 
-    // Instead of merging the two type variables at the head and tail of
-    // an implicit member chain, let the tail get resolved to a concrete
-    // type first. This way, if it's a generic type, we can defer
-    // binding the type params to one another, allowing for different
-    // params at the head and tail of the chain.
-    SmallVector<LocatorPathElt, 4> path;
-    auto *locator = constraint->getLocator();
-    if (auto *UME = getAsExpr<UnresolvedMemberExpr>(locator->getAnchor()))
-      if (locator->isLastElement<LocatorPathElt::MemberRefBase>())
-        continue;
-
     auto rep1 = CS.getRepresentative(tyvar1);
     auto rep2 = CS.getRepresentative(tyvar2);
 
