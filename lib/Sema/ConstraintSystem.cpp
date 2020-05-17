@@ -3512,6 +3512,11 @@ void constraints::simplifyLocator(ASTNode &anchor,
       continue;
     }
 
+    case ConstraintLocator::UnresolvedMemberChainResult: {
+      path = path.slice(1);
+      continue;
+    }
+
     default:
       // FIXME: Lots of other cases to handle.
       break;
