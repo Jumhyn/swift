@@ -1006,10 +1006,12 @@ namespace {
           auto chainBaseTy = CS.getUnresolvedMemberBaseType(UME);
 
           // The result of this element of the chain must be convertible to the
-          // contextual type, and the contextual type must be equal to the base.
+          // contextual type, and the contextual type must be equal to the base
+          // (up to generic arguments).
           CS.addConstraint(ConstraintKind::Conversion, resultTy, chainResultTy,
                            locator);
-          CS.addConstraint(ConstraintKind::Equal, chainBaseTy, chainResultTy,
+          CS.addConstraint(ConstraintKind::NominalEqual, chainBaseTy,
+                           chainResultTy,
                 CS.getConstraintLocator(UME, ConstraintLocator::MemberRefBase));
 
           return chainResultTy;

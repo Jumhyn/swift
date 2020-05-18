@@ -1704,6 +1704,8 @@ void ConstraintSystem::ArgumentInfoCollector::walk(Type argType) {
       case ConstraintKind::Defaultable:
       case ConstraintKind::OneWayEqual:
       case ConstraintKind::DefaultClosureType:
+      case ConstraintKind::NominalEqual:
+      case ConstraintKind::PreferredDefault:
         break;
       }
     }

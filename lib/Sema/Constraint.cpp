@@ -66,6 +66,8 @@ Constraint::Constraint(ConstraintKind Kind, Type First, Type Second,
   case ConstraintKind::FunctionResult:
   case ConstraintKind::OpaqueUnderlyingType:
   case ConstraintKind::OneWayEqual:
+  case ConstraintKind::NominalEqual:
+  case ConstraintKind::PreferredDefault:
     assert(!First.isNull());
     assert(!Second.isNull());
     break;
@@ -139,6 +141,8 @@ Constraint::Constraint(ConstraintKind Kind, Type First, Type Second, Type Third,
   case ConstraintKind::OpaqueUnderlyingType:
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::DefaultClosureType:
+  case ConstraintKind::NominalEqual:
+  case ConstraintKind::PreferredDefault:
     llvm_unreachable("Wrong constructor");
 
   case ConstraintKind::KeyPath:
@@ -266,6 +270,8 @@ Constraint *Constraint::clone(ConstraintSystem &cs) const {
   case ConstraintKind::OpaqueUnderlyingType:
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::DefaultClosureType:
+  case ConstraintKind::NominalEqual:
+  case ConstraintKind::PreferredDefault:
     return create(cs, getKind(), getFirstType(), getSecondType(), getLocator());
 
   case ConstraintKind::BindOverload:
@@ -351,6 +357,8 @@ void Constraint::print(llvm::raw_ostream &Out, SourceManager *sm) const {
   case ConstraintKind::DefaultClosureType:
     Out << " closure can default to ";
     break;
+  case ConstraintKind::NominalEqual: Out << " nominal equal to "; break;
+  case ConstraintKind::PreferredDefault: Out << " preferred default "; break;
   case ConstraintKind::KeyPath:
       Out << " key path from ";
       Out << getSecondType()->getString(PO);
@@ -565,6 +573,8 @@ gatherReferencedTypeVars(Constraint *constraint,
   case ConstraintKind::OpaqueUnderlyingType:
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::DefaultClosureType:
+  case ConstraintKind::NominalEqual:
+  case ConstraintKind::PreferredDefault:
     constraint->getFirstType()->getTypeVariables(typeVars);
     constraint->getSecondType()->getTypeVariables(typeVars);
     break;

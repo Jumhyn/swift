@@ -668,6 +668,8 @@ enum ScoreKind {
   SK_UserConversion,
   /// A non-trivial function conversion.
   SK_FunctionConversion,
+  /// A preferred default bound to something other than the preference.
+  SK_NonPreferredDefault,
   /// A literal expression bound to a non-default literal type.
   SK_NonDefaultLiteral,
   /// An implicit upcast conversion between collection types.
@@ -4124,7 +4126,8 @@ private:
       ConstraintLocatorBuilder locator);
 
   /// Attempt to simplify the given defaultable constraint.
-  SolutionKind simplifyDefaultableConstraint(Type first, Type second,
+  SolutionKind simplifyDefaultableConstraint(ConstraintKind kind, Type first,
+                                             Type second,
                                              TypeMatchOptions flags,
                                              ConstraintLocatorBuilder locator);
 
@@ -4139,6 +4142,11 @@ private:
                                         Type first, Type second,
                                         TypeMatchOptions flags,
                                         ConstraintLocatorBuilder locator);
+
+  SolutionKind simplifyNominalEqualConstraint(ConstraintKind kind,
+                                              Type first, Type second,
+                                              TypeMatchOptions flags,
+                                              ConstraintLocatorBuilder locator);
 
   /// Simplify a conversion constraint by applying the given
   /// reduction rule, which is known to apply at the outermost level.
@@ -4262,6 +4270,12 @@ private:
                  : nullptr;
     }
 
+    bool isPreferredDefaultBinding() const {
+      if (auto *constraint = BindingSource.dyn_cast<Constraint *>())
+        return constraint->getKind() == ConstraintKind::PreferredDefault;
+      return false;
+    }
+
     ConstraintLocator *getLocator() const {
       if (auto *constraint = BindingSource.dyn_cast<Constraint *>())
         return constraint->getLocator();
@@ -4319,6 +4333,11 @@ private:
 
     /// Tracks the position of the last known supertype in the group.
     Optional<unsigned> lastSupertypeIndex;
+
+      /// Whether there are bindings that are not from a PreferredDefault
+      /// constraint. This allows us to avoid checking additional bindings in
+      /// most cases.
+      bool HasNonPreferredDefaultBindings = false;
 
     /// A set of all constraints which contribute to pontential bindings.
     llvm::SmallPtrSet<Constraint *, 8> Sources;

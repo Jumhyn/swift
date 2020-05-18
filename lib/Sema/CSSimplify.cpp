@@ -1323,6 +1323,8 @@ ConstraintSystem::matchTupleTypes(TupleType *tuple1, TupleType *tuple2,
   case ConstraintKind::FunctionResult:
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::DefaultClosureType:
+  case ConstraintKind::NominalEqual:
+  case ConstraintKind::PreferredDefault:
     llvm_unreachable("Not a conversion");
   }
 
@@ -1388,6 +1390,8 @@ static bool matchFunctionRepresentations(FunctionTypeRepresentation rep1,
   case ConstraintKind::FunctionResult:
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::DefaultClosureType:
+  case ConstraintKind::NominalEqual:
+  case ConstraintKind::PreferredDefault:
     return false;
   }
 
@@ -1666,6 +1670,7 @@ ConstraintSystem::matchFunctionTypes(FunctionType *func1, FunctionType *func2,
   case ConstraintKind::BindParam:
   case ConstraintKind::BindToPointerType:
   case ConstraintKind::Equal:
+  case ConstraintKind::PreferredDefault:
     subKind = kind;
     break;
 
@@ -1700,6 +1705,7 @@ ConstraintSystem::matchFunctionTypes(FunctionType *func1, FunctionType *func2,
   case ConstraintKind::FunctionResult:
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::DefaultClosureType:
+  case ConstraintKind::NominalEqual:
     llvm_unreachable("Not a relational constraint");
   }
 
@@ -4329,6 +4335,8 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
     case ConstraintKind::FunctionResult:
     case ConstraintKind::OneWayEqual:
     case ConstraintKind::DefaultClosureType:
+    case ConstraintKind::NominalEqual:
+    case ConstraintKind::PreferredDefault:
       llvm_unreachable("Not a relational constraint");
     }
   }
@@ -6959,19 +6967,27 @@ ConstraintSystem::simplifyValueWitnessConstraint(
 }
 
 ConstraintSystem::SolutionKind ConstraintSystem::simplifyDefaultableConstraint(
-    Type first, Type second, TypeMatchOptions flags,
+    ConstraintKind kind, Type first, Type second, TypeMatchOptions flags,
     ConstraintLocatorBuilder locator) {
   first = getFixedTypeRecursive(first, flags, true);
 
   if (first->isTypeVariableOrMember()) {
     if (flags.contains(TMF_GenerateConstraints)) {
       addUnsolvedConstraint(
-          Constraint::create(*this, ConstraintKind::Defaultable, first, second,
+          Constraint::create(*this, kind, first, second,
                              getConstraintLocator(locator)));
       return SolutionKind::Solved;
     }
 
     return SolutionKind::Unsolved;
+  }
+
+  if (kind == ConstraintKind::PreferredDefault) {
+    second = getFixedTypeRecursive(second, flags, true);
+    if (second->isTypeVariableOrMember())
+      return SolutionKind::Unsolved;
+    else if (!first->isEqual(second))
+      increaseScore(SK_NonPreferredDefault);
   }
 
   // Otherwise, any type is fine.
@@ -7030,6 +7046,53 @@ ConstraintSystem::simplifyOneWayConstraint(
   }
 
   // Translate this constraint into a one-way binding constraint.
+  return matchTypes(first, secondSimplified, ConstraintKind::Equal, flags,
+                    locator);
+}
+
+ConstraintSystem::SolutionKind
+ConstraintSystem::simplifyNominalEqualConstraint(
+    ConstraintKind kind,
+    Type first, Type second, TypeMatchOptions flags,
+    ConstraintLocatorBuilder locator) {
+  // Determine whether the second type has been simplified to a concrete type
+  // yet. If not, we can't do anything here.
+  Type secondSimplified = simplifyType(second);
+  if (secondSimplified->isTypeVariableOrMember()) {
+    if (flags.contains(TMF_GenerateConstraints)) {
+      addUnsolvedConstraint(
+        Constraint::create(*this, kind, first, second,
+                           getConstraintLocator(locator)));
+      return SolutionKind::Solved;
+    }
+
+    return SolutionKind::Unsolved;
+  }
+
+  // If we've simplified the second type to a bound generic type, generate new
+  // type variables for the arguments of the first type.
+  if (auto generic2 = secondSimplified->getAs<BoundGenericType>()) {
+    // Optionals should not receive this treatment.
+    if (!secondSimplified->getOptionalObjectType()) {
+      SmallVector<Type, 4> args1;
+      auto args2 = generic2->getGenericArgs();
+      for (unsigned i = 0; i < args2.size(); ++i) {
+        auto arg2 = args2[i];
+        auto *argLocator = getConstraintLocator(locator,
+                                                LocatorPathElt::GenericArgument(i));
+        auto arg1 = createTypeVariable(argLocator, 0);
+        addConstraint(ConstraintKind::PreferredDefault, arg1, arg2,
+                      argLocator);
+        args1.push_back(arg1);
+      }
+
+      auto generic1 = BoundGenericType::get(generic2->getDecl(),
+                                            generic2->getParent(),
+                                            args1);
+      return matchTypes(first, generic1, ConstraintKind::Equal, flags, locator);
+    }
+  }
+
   return matchTypes(first, secondSimplified, ConstraintKind::Equal, flags,
                     locator);
 }
@@ -9655,7 +9718,9 @@ ConstraintSystem::addConstraintImpl(ConstraintKind kind, Type first,
     return simplifyOptionalObjectConstraint(first, second, subflags, locator);
 
   case ConstraintKind::Defaultable:
-    return simplifyDefaultableConstraint(first, second, subflags, locator);
+  case ConstraintKind::PreferredDefault:
+    return simplifyDefaultableConstraint(kind, first, second, subflags,
+                                         locator);
 
   case ConstraintKind::FunctionInput:
   case ConstraintKind::FunctionResult:
@@ -9664,6 +9729,10 @@ ConstraintSystem::addConstraintImpl(ConstraintKind kind, Type first,
 
   case ConstraintKind::OneWayEqual:
     return simplifyOneWayConstraint(kind, first, second, subflags, locator);
+
+  case ConstraintKind::NominalEqual:
+    return simplifyNominalEqualConstraint(kind, first, second, subflags,
+                                          locator);
 
   case ConstraintKind::ValueMember:
   case ConstraintKind::UnresolvedValueMember:
@@ -10143,7 +10212,9 @@ ConstraintSystem::simplifyConstraint(const Constraint &constraint) {
                                           constraint.getLocator());
 
   case ConstraintKind::Defaultable:
-    return simplifyDefaultableConstraint(constraint.getFirstType(),
+  case ConstraintKind::PreferredDefault:
+    return simplifyDefaultableConstraint(constraint.getKind(),
+                                         constraint.getFirstType(),
                                          constraint.getSecondType(),
                                          TMF_GenerateConstraints,
                                          constraint.getLocator());
@@ -10173,6 +10244,13 @@ ConstraintSystem::simplifyConstraint(const Constraint &constraint) {
                                     constraint.getSecondType(),
                                     TMF_GenerateConstraints,
                                     constraint.getLocator());
+
+  case ConstraintKind::NominalEqual:
+      return simplifyNominalEqualConstraint(constraint.getKind(),
+                                            constraint.getFirstType(),
+                                            constraint.getSecondType(),
+                                            TMF_GenerateConstraints,
+                                            constraint.getLocator());
   }
 
   llvm_unreachable("Unhandled ConstraintKind in switch.");
