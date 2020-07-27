@@ -1416,7 +1416,7 @@ bool Parser::canConsumeCompoundDeclName() {
   if (secondLabelLoc.getBaseNameLoc().isInvalid())
     return false;
 
-  if (consumeToken(tok::colon).isInvalid())
+  if (!consumeIf(tok::colon))
     return false;
 
   // If we have at least two argument labels in a row, then this isn't a call,
@@ -1547,6 +1547,10 @@ ParserResult<Expr> Parser::parseExprPrimary(Diag<> ID, bool isExprBasic) {
         (peekToken().isNot(tok::period, tok::period_prefix, tok::l_paren) ||
          canConsumeCompoundDeclName())) {
       DeferringContextRAII Deferring(*SyntaxContext);
+      SyntaxParsingContext PatternExprCtx(SyntaxContext,
+                                          SyntaxKind::UnresolvedPatternExpr);
+      SyntaxParsingContext IdentPatternCtx(SyntaxContext,
+                                           SyntaxKind::IdentifierPattern);
       DeclNameLoc loc;
       DeclName name = parseDeclName(loc, diag::expected_pattern,
                                     DeclNameFlag::AllowCompoundNames);
@@ -1555,14 +1559,7 @@ ParserResult<Expr> Parser::parseExprPrimary(Diag<> ID, bool isExprBasic) {
                          : VarDecl::Introducer::Var);
       auto pattern = createBindingFromPattern(loc.getBaseNameLoc(), name,
                                               introducer);
-      if (SyntaxContext->isEnabled()) {
-        auto DeclNameNode(std::move(*SyntaxContext->popIf<ParsedDeclNameSyntax>()));
-        ParsedPatternSyntax PatternNode = ParsedSyntaxRecorder::makeDeclNamePattern(std::move(DeclNameNode), *SyntaxContext);
-        ParsedExprSyntax ExprNode =
-            ParsedSyntaxRecorder::makeUnresolvedPatternExpr(std::move(PatternNode),
-                                                             *SyntaxContext);
-        SyntaxContext->addSyntax(std::move(ExprNode));
-      }
+
       return makeParserResult(new (Context) UnresolvedPatternExpr(pattern));
     }
 

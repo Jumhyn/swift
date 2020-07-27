@@ -1088,15 +1088,13 @@ ParserResult<TypeRepr> Parser::parseTypeTupleBody() {
     if (isSimpleLabel ||
         (Tok.canBeArgumentLabel() && canConsumeCompoundDeclName())) {
       // Consume a name.
-      element.Name = parseDeclName(element.NameLoc,
-                                   diag::expected_decl_name,
-                                   DeclNameFlag::AllowCompoundNames);
+      element.NameLoc = consumeArgumentLabel(element.Name,
+                                             /*allowCompound=*/true);
 
       // If there is a second name, consume it as well.
       if (Tok.canBeArgumentLabel())
-        element.SecondName = parseDeclName(element.SecondNameLoc,
-                                           diag::expected_decl_name,
-                                           DeclNameFlag::AllowCompoundNames);
+        element.SecondNameLoc = consumeArgumentLabel(element.SecondName,
+                                                     /*allowCompound=*/true);
 
       // Consume the ':'.
       if (consumeIf(tok::colon, element.ColonLoc)) {
