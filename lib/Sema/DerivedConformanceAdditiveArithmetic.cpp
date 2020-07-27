@@ -143,7 +143,8 @@ deriveBodyMathOperator(AbstractFunctionDecl *funcDecl, MathOperator op) {
     auto *rhsArg = new (C) MemberRefExpr(rhsDRE, SourceLoc(), member,
                                          DeclNameLoc(), /*Implicit*/ true);
     auto *memberOpArgs =
-        TupleExpr::create(C, SourceLoc(), {lhsArg, rhsArg}, {}, {}, SourceLoc(),
+        TupleExpr::create(C, SourceLoc(), {lhsArg, rhsArg},
+                          SmallVector<DeclName, 2>(), {}, SourceLoc(),
                           /*HasTrailingClosure*/ false,
                           /*Implicit*/ true);
     auto *memberOpCallExpr =

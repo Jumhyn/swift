@@ -75,8 +75,9 @@ deriveBodyEquatable_enum_uninhabited_eq(AbstractFunctionDecl *eqDecl, void *) {
                                   AccessSemantics::Ordinary,
                                   bParam->getType());
   TupleTypeElt abTupleElts[2] = { aParam->getType(), bParam->getType() };
-  auto abExpr = TupleExpr::create(C, SourceLoc(), {aRef, bRef}, {}, {},
-                                  SourceLoc(), /*HasTrailingClosure*/ false,
+  auto abExpr = TupleExpr::create(C, SourceLoc(), {aRef, bRef},
+                                  SmallVector<DeclName, 2>(), {}, SourceLoc(),
+                                  /*HasTrailingClosure*/ false,
                                   /*implicit*/ true,
                                   TupleType::get(abTupleElts, C));
   auto switchStmt = SwitchStmt::create(LabeledStmtInfo(), SourceLoc(), abExpr,
@@ -134,7 +135,8 @@ deriveBodyEquatable_enum_noAssociatedValues_eq(AbstractFunctionDecl *eqDecl,
 
   TupleTypeElt abTupleElts[2] = { aIndex->getType(), bIndex->getType() };
   TupleExpr *abTuple = TupleExpr::create(C, SourceLoc(), { aIndex, bIndex },
-                                         { }, { }, SourceLoc(),
+                                         SmallVector<DeclName, 2>(), { },
+                                         SourceLoc(),
                                          /*HasTrailingClosure*/ false,
                                          /*Implicit*/ true,
                                          TupleType::get(abTupleElts, C));
@@ -271,8 +273,9 @@ deriveBodyEquatable_enum_hasAssociatedValues_eq(AbstractFunctionDecl *eqDecl,
   // switch (a, b) { <case statements> }
   auto aRef = new (C) DeclRefExpr(aParam, DeclNameLoc(), /*implicit*/true);
   auto bRef = new (C) DeclRefExpr(bParam, DeclNameLoc(), /*implicit*/true);
-  auto abExpr = TupleExpr::create(C, SourceLoc(), { aRef, bRef }, {}, {},
-                                  SourceLoc(), /*HasTrailingClosure*/ false,
+  auto abExpr = TupleExpr::create(C, SourceLoc(), { aRef, bRef },
+                                  SmallVector<DeclName, 2>(), {}, SourceLoc(),
+  /*HasTrailingClosure*/ false,
                                   /*implicit*/ true);
   auto switchStmt = SwitchStmt::create(LabeledStmtInfo(), SourceLoc(), abExpr,
                                        SourceLoc(), cases, SourceLoc(), C);

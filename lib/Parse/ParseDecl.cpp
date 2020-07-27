@@ -427,7 +427,7 @@ ParserResult<AvailableAttr> Parser::parseExtendedAvailabilitySpecList(
         diagnoseDuplicate(Message.empty());
         Message = Value.getValue();
       } else {
-        ParsedDeclName parsedName = parseDeclName(Value.getValue());
+        ParsedDeclName parsedName = ::parseDeclName(Value.getValue());
         if (!parsedName) {
           diagnose(AttrLoc, diag::attr_availability_invalid_renamed, AttrName);
           AnyArgumentInvalid = true;
@@ -2626,8 +2626,8 @@ ParserStatus Parser::parseDeclAttribute(DeclAttributes &Attributes, SourceLoc At
     // Parse the optional arguments.
     SourceLoc lParenLoc, rParenLoc;
     SmallVector<Expr *, 2> args;
-    SmallVector<Identifier, 2> argLabels;
-    SmallVector<SourceLoc, 2> argLabelLocs;
+    SmallVector<DeclName, 2> argLabels;
+    SmallVector<DeclNameLoc, 2> argLabelLocs;
     SmallVector<TrailingClosure, 2> trailingClosures;
     bool hasInitializer = false;
     ParserStatus status;
@@ -2674,11 +2674,15 @@ ParserStatus Parser::parseDeclAttribute(DeclAttributes &Attributes, SourceLoc At
       }
     }
 
+    SmallVector<Identifier, 2> simpleLabels;
+    SmallVector<SourceLoc, 2> simpleLocs;
+    getSimpleArgumentLabels(argLabels, argLabelLocs, simpleLabels, simpleLocs);
+
     // Form the attribute.
     auto *TE = new (Context) TypeExpr(type.get());
     auto attr = CustomAttr::create(Context, AtLoc, TE, hasInitializer,
-                                   initContext, lParenLoc, args, argLabels,
-                                   argLabelLocs, rParenLoc);
+                                   initContext, lParenLoc, args, simpleLabels,
+                                   simpleLocs, rParenLoc);
     Attributes.add(attr);
     return status;
   }

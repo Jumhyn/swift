@@ -1185,8 +1185,8 @@ Parser::parseExprPostfixSuffix(ParserResult<Expr> Result, bool isExprBasic,
     if (Tok.isFollowingLSquare()) {
       SourceLoc lSquareLoc, rSquareLoc;
       SmallVector<Expr *, 2> indexArgs;
-      SmallVector<Identifier, 2> indexArgLabels;
-      SmallVector<SourceLoc, 2> indexArgLabelLocs;
+      SmallVector<DeclName, 2> indexArgLabels;
+      SmallVector<DeclNameLoc, 2> indexArgLabelLocs;
       SmallVector<TrailingClosure, 2> trailingClosures;
 
       ParserStatus status = parseExprList(
@@ -1194,10 +1194,17 @@ Parser::parseExprPostfixSuffix(ParserResult<Expr> Result, bool isExprBasic,
           /*isPostfix=*/true, isExprBasic, lSquareLoc, indexArgs,
           indexArgLabels, indexArgLabelLocs, rSquareLoc,
           trailingClosures, SyntaxKind::TupleExprElementList);
+
+      SmallVector<Identifier, 2> simpleLabels;
+      SmallVector<SourceLoc, 2> simpleLocs;
+
+      getSimpleArgumentLabels(indexArgLabels, indexArgLabelLocs, simpleLabels,
+                              simpleLocs);
+
       Result = makeParserResult(
           status | Result,
           SubscriptExpr::create(Context, Result.get(), lSquareLoc, indexArgs,
-                                indexArgLabels, indexArgLabelLocs, rSquareLoc,
+                                simpleLabels, simpleLocs, rSquareLoc,
                                 trailingClosures, ConcreteDeclRef(),
                                 /*implicit=*/false));
       SyntaxContext->createNodeInPlace(SyntaxKind::SubscriptExpr);
@@ -1373,6 +1380,47 @@ ParserResult<Expr> Parser::parseExprPostfix(Diag<> ID, bool isExprBasic) {
   return Result;
 }
 
+bool Parser::canConsumeCompoundDeclName() {
+  assert(Tok.isAny(tok::identifier, tok::kw_self));
+  Parser::BacktrackingScope backtrack(*this);
+
+  consumeToken();
+  if (!consumeIf(tok::l_paren))
+    return false;
+
+  if (!Tok.canBeArgumentLabel())
+    return false;
+
+  DeclName firstLabel;
+  auto firstLabelLoc = consumeArgumentLabel(firstLabel);
+
+  if (firstLabelLoc.getBaseNameLoc().isInvalid())
+    return false;
+
+  if (!consumeIf(tok::colon))
+    return false;
+
+  // If we have just a single argument label, this is a compound name!
+  if (Tok.is(tok::r_paren))
+    return true;
+
+  if (!Tok.canBeArgumentLabel())
+    return false;
+
+  DeclName secondLabel;
+  auto secondLabelLoc = consumeArgumentLabel(secondLabel);
+
+  if (secondLabelLoc.getBaseNameLoc().isInvalid())
+    return false;
+
+  if (consumeToken(tok::colon).isInvalid())
+    return false;
+
+  // If we have at least two argument labels in a row, then this isn't a call,
+  // so try parsing it as a name.
+  return true;
+}
+
 /// parseExprPrimary
 ///
 ///   expr-literal:
@@ -1491,21 +1539,22 @@ ParserResult<Expr> Parser::parseExprPrimary(Diag<> ID, bool isExprBasic) {
     if ((InVarOrLetPattern == IVOLP_ImplicitlyImmutable ||
          InVarOrLetPattern == IVOLP_InVar ||
          InVarOrLetPattern == IVOLP_InLet) &&
-        // If we have "case let x." or "case let x(", we parse x as a normal
-        // name, not a binding, because it is the start of an enum pattern or
-        // call pattern.
-        peekToken().isNot(tok::period, tok::period_prefix, tok::l_paren)) {
+        // If we have "case let x.", we parse x as a normal name, not a binding,
+        // because it is the start of an enum pattern or call pattern.
+        (peekToken().isNot(tok::period, tok::period_prefix, tok::l_paren) ||
+         canConsumeCompoundDeclName())) {
       DeferringContextRAII Deferring(*SyntaxContext);
-      Identifier name;
-      SourceLoc loc = consumeIdentifier(&name, /*allowDollarIdentifier=*/true);
+      DeclNameLoc loc;
+      DeclName name = parseDeclName(loc, diag::expected_pattern,
+                                    DeclNameFlag::AllowCompoundNames);
       auto introducer = (InVarOrLetPattern != IVOLP_InVar
                          ? VarDecl::Introducer::Let
                          : VarDecl::Introducer::Var);
-      auto pattern = createBindingFromPattern(loc, name, introducer);
+      auto pattern = createBindingFromPattern(loc.getBaseNameLoc(), name,
+                                              introducer);
       if (SyntaxContext->isEnabled()) {
-        ParsedPatternSyntax PatternNode =
-            ParsedSyntaxRecorder::makeIdentifierPattern(
-                                    SyntaxContext->popToken(), *SyntaxContext);
+        auto DeclNameNode(std::move(*SyntaxContext->popIf<ParsedDeclNameSyntax>()));
+        ParsedPatternSyntax PatternNode = ParsedSyntaxRecorder::makeDeclNamePattern(std::move(DeclNameNode), *SyntaxContext);
         ParsedExprSyntax ExprNode =
             ParsedSyntaxRecorder::makeUnresolvedPatternExpr(std::move(PatternNode),
                                                              *SyntaxContext);
@@ -1591,8 +1640,8 @@ ParserResult<Expr> Parser::parseExprPrimary(Diag<> ID, bool isExprBasic) {
     if (Tok.isFollowingLParen()) {
       SourceLoc lParenLoc, rParenLoc;
       SmallVector<Expr *, 2> args;
-      SmallVector<Identifier, 2> argLabels;
-      SmallVector<SourceLoc, 2> argLabelLocs;
+      SmallVector<DeclName, 2> argLabels;
+      SmallVector<DeclNameLoc, 2> argLabelLocs;
       SmallVector<TrailingClosure, 2> trailingClosures;
       
       ParserStatus status = parseExprList(tok::l_paren, tok::r_paren,
@@ -1603,11 +1652,18 @@ ParserResult<Expr> Parser::parseExprPrimary(Diag<> ID, bool isExprBasic) {
                                           trailingClosures,
                                           SyntaxKind::TupleExprElementList);
       SyntaxContext->createNodeInPlace(SyntaxKind::FunctionCallExpr);
+
+      SmallVector<Identifier, 2> simpleLabels;
+      SmallVector<SourceLoc, 2> simpleLocs;
+
+      getSimpleArgumentLabels(argLabels, argLabelLocs, simpleLabels,
+                              simpleLocs);
+
       return makeParserResult(
                  status,
                  UnresolvedMemberExpr::create(Context, DotLoc, NameLoc, Name,
-                                              lParenLoc, args, argLabels,
-                                              argLabelLocs, rParenLoc,
+                                              lParenLoc, args, simpleLabels,
+                                              simpleLocs, rParenLoc,
                                               trailingClosures,
                                               /*implicit=*/false));
     }
@@ -2056,9 +2112,10 @@ ParserResult<Expr> Parser::parseExprStringLiteral() {
                                       AppendingExpr));
 }
 
-void Parser::parseOptionalArgumentLabel(Identifier &name, SourceLoc &loc) {
+void Parser::parseOptionalArgumentLabel(DeclName &name, DeclNameLoc &loc) {
   // Check to see if there is an argument label.
-  if (Tok.canBeArgumentLabel() && peekToken().is(tok::colon)) {
+  if (Tok.canBeArgumentLabel() &&
+      (peekToken().is(tok::colon) || canConsumeCompoundDeclName())) {
     auto text = Tok.getText();
 
     // If this was an escaped identifier that need not have been escaped, say
@@ -2075,8 +2132,26 @@ void Parser::parseOptionalArgumentLabel(Identifier &name, SourceLoc &loc) {
           .fixItRemoveChars(end.getAdvancedLoc(-1), end);
     }
 
-    loc = consumeArgumentLabel(name);
+    loc = consumeArgumentLabel(name, /*allowCompound=*/true);
     consumeToken(tok::colon);
+  }
+}
+
+void Parser::getSimpleArgumentLabels(SmallVectorImpl<DeclName> &inLabels,
+                                     SmallVectorImpl<DeclNameLoc> &inLocs,
+                                     SmallVectorImpl<Identifier> &outLabels,
+                                     SmallVectorImpl<SourceLoc> &outLocs) {
+  assert(inLabels.size() == inLocs.size());
+  for (size_t i = 0; i < inLabels.size(); i++) {
+    auto label = inLabels[i];
+    auto loc = inLocs[i];
+
+    if (label.isCompoundName())
+      diagnose(loc.getBaseNameLoc(), diag::argument_label_compound_name)
+          .fixItRemove({loc.getLParenLoc(), loc.getRParenLoc()});
+
+    outLabels.push_back(label.getBaseIdentifier());
+    outLocs.push_back(loc.getBaseNameLoc());
   }
 }
 
@@ -2124,12 +2199,17 @@ static bool tryParseArgLabelList(Parser &P, Parser::DeclNameOptions flags,
       argumentLabelLocs.push_back(P.consumeToken(tok::colon));
     }
 
-    Identifier argName;
-    SourceLoc argLoc;
+    DeclName argName;
+    DeclNameLoc argLoc;
     P.parseOptionalArgumentLabel(argName, argLoc);
+
+    if (argName.isCompoundName())
+      P.diagnose(argLoc.getBaseNameLoc(), diag::argument_label_compound_name)
+          .fixItRemove({argLoc.getLParenLoc(), argLoc.getRParenLoc()});
+
     if (argLoc.isValid()) {
-      argumentLabels.push_back(argName);
-      argumentLabelLocs.push_back(argLoc);
+      argumentLabels.push_back(argName.getBaseIdentifier());
+      argumentLabelLocs.push_back(argLoc.getBaseNameLoc());
       continue;
     }
 
@@ -2161,6 +2241,12 @@ static bool tryParseArgLabelList(Parser &P, Parser::DeclNameOptions flags,
 DeclNameRef Parser::parseDeclNameRef(DeclNameLoc &loc,
                                      const Diagnostic &diag,
                                      DeclNameOptions flags) {
+  return DeclNameRef(parseDeclName(loc, diag, flags));
+}
+
+DeclName Parser::parseDeclName(DeclNameLoc &loc,
+                               const Diagnostic &diag,
+                               DeclNameOptions flags) {
   // Consume the base name.
   DeclBaseName baseName;
   SourceLoc baseNameLoc;
@@ -2193,7 +2279,7 @@ DeclNameRef Parser::parseDeclNameRef(DeclNameLoc &loc,
     baseName = Context.getIdentifier(Tok.getText());
     checkForInputIncomplete();
     diagnose(Tok, diag);
-    return DeclNameRef();
+    return DeclName();
   }
 
   // Parse an argument list, if the flags allow it and it's present.
@@ -2213,9 +2299,9 @@ DeclNameRef Parser::parseDeclNameRef(DeclNameLoc &loc,
                       rparenLoc);
 
   if (!hadArgList)
-    return DeclNameRef(baseName);
+    return DeclName(baseName);
 
-  return DeclNameRef({ Context, baseName, argumentLabels });
+  return { Context, baseName, argumentLabels };
 }
 
 ///   expr-identifier:
@@ -2389,7 +2475,7 @@ static void printTupleNames(const TypeRepr *typeRepr, llvm::raw_ostream &OS) {
                  // If there is no label from the element
                  // it means that it's malformed and we can
                  // use the type instead.
-                 if (name.empty())
+                 if (name.getBaseName().empty())
                    element->print(OS);
                  else
                    OS << name;
@@ -2953,7 +3039,8 @@ Expr *Parser::parseExprAnonClosureArg() {
   // replacements.
   if (auto *params = closure->getParameters()) {
     if (ArgNo < params->size() && params->get(ArgNo)->hasName()) {
-      auto paramName = params->get(ArgNo)->getNameStr();
+      llvm::SmallString<32> scratch;
+      auto paramName = params->get(ArgNo)->getNameStr(scratch);
       diagnose(Loc, diag::anon_closure_arg_in_closure_with_args_typo, paramName)
         .fixItReplace(Loc, paramName);
       return new (Context) DeclRefExpr(params->get(ArgNo), DeclNameLoc(Loc),
@@ -2998,8 +3085,8 @@ Expr *Parser::parseExprAnonClosureArg() {
 ParserResult<Expr>
 Parser::parseExprList(tok leftTok, tok rightTok, SyntaxKind Kind) {
   SmallVector<Expr*, 8> subExprs;
-  SmallVector<Identifier, 8> subExprNames;
-  SmallVector<SourceLoc, 8> subExprNameLocs;
+  SmallVector<DeclName, 8> subExprNames;
+  SmallVector<DeclNameLoc, 8> subExprNameLocs;
   SmallVector<TrailingClosure, 2> trailingClosures;
 
   SourceLoc leftLoc, rightLoc;
@@ -3015,7 +3102,7 @@ Parser::parseExprList(tok leftTok, tok rightTok, SyntaxKind Kind) {
 
   // A tuple with a single, unlabeled element is just parentheses.
   if (subExprs.size() == 1 &&
-      (subExprNames.empty() || subExprNames[0].empty())) {
+      (subExprNames.empty() || subExprNames[0].getBaseName().empty())) {
     return makeParserResult(
         status, new (Context) ParenExpr(leftLoc, subExprs[0], rightLoc,
                                         /*hasTrailingClosure=*/false));
@@ -3043,8 +3130,8 @@ ParserStatus Parser::parseExprList(tok leftTok, tok rightTok,
                                    bool isExprBasic,
                                    SourceLoc &leftLoc,
                                    SmallVectorImpl<Expr *> &exprs,
-                                   SmallVectorImpl<Identifier> &exprLabels,
-                                   SmallVectorImpl<SourceLoc> &exprLabelLocs,
+                                   SmallVectorImpl<DeclName> &exprLabels,
+                                   SmallVectorImpl<DeclNameLoc> &exprLabelLocs,
                                    SourceLoc &rightLoc,
                                    SmallVectorImpl<TrailingClosure> &trailingClosures,
                                    SyntaxKind Kind) {
@@ -3062,8 +3149,8 @@ ParserStatus Parser::parseExprList(tok leftTok, tok rightTok,
                                     : diag::expected_rsquare_expr_list,
                                   Kind,
                                   [&] () -> ParserStatus {
-    Identifier FieldName;
-    SourceLoc FieldNameLoc;
+    DeclName FieldName;
+    DeclNameLoc FieldNameLoc;
     if (Kind != SyntaxKind::YieldStmt)
       parseOptionalArgumentLabel(FieldName, FieldNameLoc);
 
@@ -3223,7 +3310,7 @@ Parser::parseTrailingClosures(bool isExprBasic, SourceRange calleeRange,
     SyntaxParsingContext ClosureCtx(SyntaxContext,
                                     SyntaxKind::MultipleTrailingClosureElement);
     Identifier label;
-    auto labelLoc = consumeArgumentLabel(label);
+    auto labelLoc = consumeSimpleArgumentLabel(label);
     consumeToken(tok::colon);
     ParserResult<Expr> closure;
     if (Tok.is(tok::l_brace)) {
@@ -3277,8 +3364,8 @@ Parser::parseExprObjectLiteral(ObjectLiteralExpr::LiteralKind LitKind,
   // Parse the argument list.
   SourceLoc lParenLoc, rParenLoc;
   SmallVector<Expr *, 2> args;
-  SmallVector<Identifier, 2> argLabels;
-  SmallVector<SourceLoc, 2> argLabelLocs;
+  SmallVector<DeclName, 2> argLabels;
+  SmallVector<DeclNameLoc, 2> argLabelLocs;
   SmallVector<TrailingClosure, 2> trailingClosures;
 
   ParserStatus status = parseExprList(tok::l_paren, tok::r_paren,
@@ -3293,9 +3380,14 @@ Parser::parseExprObjectLiteral(ObjectLiteralExpr::LiteralKind LitKind,
   if (status.isError())
     return makeParserError();
 
+  SmallVector<Identifier, 2> simpleLabels;
+  SmallVector<SourceLoc, 2> simpleLocs;
+
+  getSimpleArgumentLabels(argLabels, argLabelLocs, simpleLabels, simpleLocs);
+
   return makeParserResult(
     ObjectLiteralExpr::create(Context, PoundLoc, LitKind, lParenLoc, args,
-                              argLabels, argLabelLocs, rParenLoc,
+                              simpleLabels, simpleLocs, rParenLoc,
                               trailingClosures, /*implicit=*/false));
 }
 
@@ -3318,9 +3410,9 @@ ParserResult<Expr> Parser::parseExprPoundUnknown(SourceLoc LSquareLoc) {
 
   // Parse arguments if exist.
   SourceLoc LParenLoc, RParenLoc;
-  SmallVector<SourceLoc, 2> argLabelLocs;
+  SmallVector<DeclNameLoc, 2> argLabelLocs;
   SmallVector<Expr *, 2> args;
-  SmallVector<Identifier, 2> argLabels;
+  SmallVector<DeclName, 2> argLabels;
   SmallVector<TrailingClosure, 2> trailingClosures;
   if (Tok.isFollowingLParen()) {
     // Parse arguments.
@@ -3372,7 +3464,7 @@ ParserResult<Expr> Parser::parseExprPoundUnknown(SourceLoc LSquareLoc) {
   diag.fixItReplace(NameLoc, NewNameArgPair.first);
   // Replace the first argument.
   if (!argLabelLocs.empty() && argLabelLocs[0].isValid())
-    diag.fixItReplace(argLabelLocs[0], NewNameArgPair.second);
+    diag.fixItReplace(argLabelLocs[0].getSourceRange(), NewNameArgPair.second);
   // Remove '#]' if exist.
   if (RPoundLoc.isValid())
     diag.fixItRemove(
@@ -3411,8 +3503,8 @@ Parser::parseExprCallSuffix(ParserResult<Expr> fn, bool isExprBasic) {
 
   SourceLoc lParenLoc, rParenLoc;
   SmallVector<Expr *, 2> args;
-  SmallVector<Identifier, 2> argLabels;
-  SmallVector<SourceLoc, 2> argLabelLocs;
+  SmallVector<DeclName, 2> argLabels;
+  SmallVector<DeclNameLoc, 2> argLabelLocs;
   SmallVector<TrailingClosure, 2> trailingClosures;
 
   // If there is a code completion token right after the '(', do a special case
@@ -3445,10 +3537,15 @@ Parser::parseExprCallSuffix(ParserResult<Expr> fn, bool isExprBasic) {
                                       trailingClosures,
                                       SyntaxKind::TupleExprElementList);
 
+  SmallVector<Identifier, 2> simpleNames;
+  SmallVector<SourceLoc, 2> simpleLocs;
+
+  getSimpleArgumentLabels(argLabels, argLabelLocs, simpleNames, simpleLocs);
+
   // Form the call.
   return makeParserResult(status | fn,
                           CallExpr::create(Context, fn.get(), lParenLoc, args,
-                                           argLabels, argLabelLocs, rParenLoc,
+                                           simpleNames, simpleLocs, rParenLoc,
                                            trailingClosures,
                                            /*implicit=*/false));
 }

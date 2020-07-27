@@ -2332,7 +2332,7 @@ void ASTMangler::appendTypeList(Type listTy, const ValueDecl *forDecl) {
   }
 }
 
-void ASTMangler::appendTypeListElement(Identifier name, Type elementType,
+void ASTMangler::appendTypeListElement(DeclName name, Type elementType,
                                        ParameterTypeFlags flags,
                                        const ValueDecl *forDecl) {
   if (auto *fnType = elementType->getAs<FunctionType>())
@@ -2354,8 +2354,9 @@ void ASTMangler::appendTypeListElement(Identifier name, Type elementType,
     appendOperator("n");
     break;
   }
-  if (!name.empty())
-    appendIdentifier(name.str());
+  if (!name.getBaseIdentifier().empty())
+    // TODO: Come up with a mangling scheme!
+    appendIdentifier(name.getBaseIdentifier().str());
   if (flags.isVariadic())
     appendOperator("d");
 }

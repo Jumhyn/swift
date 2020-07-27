@@ -795,8 +795,8 @@ bool LabelingFailure::diagnoseAsNote() {
   if (isa<ParenExpr>(argExpr)) {
     argLabels.push_back(Identifier());
   } else if (auto *tuple = dyn_cast<TupleExpr>(argExpr)) {
-    argLabels.append(tuple->getElementNames().begin(),
-                     tuple->getElementNames().end());
+    for (auto &name : tuple->getElementNames())
+      argLabels.push_back(name.getBaseIdentifier());
   } else {
     return false;
   }
@@ -1571,7 +1571,8 @@ bool AssignmentFailure::diagnoseAsError() {
     auto getKeyPathArgument = [](SubscriptExpr *expr) {
       auto *TE = dyn_cast<TupleExpr>(expr->getIndex());
       assert(TE->getNumElements() == 1);
-      assert(TE->getElementName(0).str() == "keyPath");
+      assert(TE->getElementName(0).isSimpleName());
+      assert(TE->getElementName(0).getBaseIdentifier().str() == "keyPath");
       return TE->getElement(0);
     };
 
@@ -4024,7 +4025,7 @@ bool MissingArgumentsFailure::diagnoseSingleMissingArgument() const {
       insertLoc = Lexer::getLocForEndOfToken(
           ctx.SourceMgr, TE->getElement(argPos)->getEndLoc());
     } else {
-      insertLoc = TE->getElementNameLoc(0);
+      insertLoc = TE->getElementNameLoc(0).getBaseNameLoc();
       if (insertLoc.isInvalid())
         insertLoc = TE->getElement(0)->getStartLoc();
     }
@@ -4409,7 +4410,7 @@ bool ClosureParamDestructuringFailure::diagnoseAsError() {
   parameterOS << "(";
   interleave(
       params->getArray(),
-      [&](const ParamDecl *param) { parameterOS << param->getNameStr(); },
+      [&](const ParamDecl *param) { param->getName().print(parameterOS); },
       [&] { parameterOS << ", "; });
   parameterOS << ")";
 
@@ -4487,8 +4488,8 @@ bool OutOfOrderArgumentFailure::diagnoseAsError() {
 
   auto *tuple = cast<TupleExpr>(argExpr);
 
-  Identifier first = tuple->getElementName(ArgIdx);
-  Identifier second = tuple->getElementName(PrevArgIdx);
+  Identifier first = tuple->getElementName(ArgIdx).getBaseIdentifier();
+  Identifier second = tuple->getElementName(PrevArgIdx).getBaseIdentifier();
 
   // Build a mapping from arguments to parameters.
   SmallVector<unsigned, 4> argBindings(tuple->getNumElements());
@@ -4500,7 +4501,7 @@ bool OutOfOrderArgumentFailure::diagnoseAsError() {
   auto argRange = [&](unsigned argIdx, Identifier label) -> SourceRange {
     auto range = tuple->getElement(argIdx)->getSourceRange();
     if (!label.empty())
-      range.Start = tuple->getElementNameLoc(argIdx);
+      range.Start = tuple->getElementNameLoc(argIdx).getBaseNameLoc();
 
     unsigned paramIdx = argBindings[argIdx];
     if (Bindings[paramIdx].size() > 1)
@@ -5368,13 +5369,13 @@ bool InvalidTupleSplatWithSingleParameterFailure::diagnoseAsError() {
     //
     // Where left paren should be suggested after the label,
     // since the label belongs to the parameter itself.
-    if (!firstArgLabel.empty()) {
+    if (!firstArgLabel.getBaseName().empty()) {
       auto paramTuple = resolveType(ParamType)->castTo<TupleType>();
       // If the label of the first argument matches the one required
       // by the parameter it would be omitted from the fixed parameter type.
       if (!paramTuple->getElement(0).hasName())
         newLeftParenLoc = Lexer::getLocForEndOfToken(getASTContext().SourceMgr,
-                                                     TE->getElementNameLoc(0));
+                                          TE->getElementNameLoc(0).getEndLoc());
     }
   }
 

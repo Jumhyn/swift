@@ -496,10 +496,13 @@ CharSourceRange parameterNameRangeOfCallArg(const TupleExpr *TE,
   unsigned i = 0;
   for (auto E : TE->getElements()) {
     if (E == Arg) {
-      SourceLoc NL = TE->getElementNameLoc(i);
-      Identifier Name = TE->getElementName(i);
-      if (NL.isValid() && !Name.empty())
-        return CharSourceRange(NL, Name.getLength());
+      DeclNameLoc NL = TE->getElementNameLoc(i);
+      DeclName Name = TE->getElementName(i);
+      if (NL.isValid() && !Name.empty()) {
+        SmallString<16> scratch;
+        return CharSourceRange(NL.getBaseNameLoc(),
+                               Name.getString(scratch).size());
+      }
 
       return CharSourceRange();
     }

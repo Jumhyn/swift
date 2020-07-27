@@ -2097,13 +2097,16 @@ ParamSpecifierRequest::evaluate(Evaluator &evaluator,
 static Type applyFunctionArgumentLabels(DeclName name, Type type) {
     assert(type->is<FunctionType>());
     if (auto *fnTy = type->getAs<FunctionType>()) {
-      assert(fnTy->getParams().size() == name.getArgumentNames().size());
       SmallVector<AnyFunctionType::Param, 4> labeledParams;
       auto params = fnTy->getParams();
       auto labels = name.getArgumentNames();
-      for (size_t i = 0; i < params.size(); ++i) {
+      size_t i = 0;
+      for (; i < fmin(params.size(), labels.size()); ++i) {
         auto param = params[i];
         labeledParams.push_back(param.withLabel(labels[i]));
+      }
+      while (i < params.size()) {
+        labeledParams.push_back(params[i++]);
       }
       return FunctionType::get(labeledParams, fnTy->getResult(),
                                AnyFunctionType::ExtInfo());
@@ -2279,7 +2282,9 @@ InterfaceTypeRequest::evaluate(Evaluator &eval, ValueDecl *D) const {
     }
 
     if (VD->getName().isCompoundName()) {
-      interfaceType = applyFunctionArgumentLabels(VD->getName(), interfaceType);
+      if (interfaceType->is<AnyFunctionType>())
+        interfaceType = applyFunctionArgumentLabels(VD->getName(),
+                                                    interfaceType);
     }
 
     return interfaceType;

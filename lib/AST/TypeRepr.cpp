@@ -361,13 +361,13 @@ void TupleTypeRepr::printImpl(ASTPrinter &Printer,
       // Printing empty Identifier is same as printing '_'.
       Printer.printName(Identifier(),
                         PrintNameContext::FunctionParameterExternal);
-      if (!name.empty()) {
+      if (!name.getBaseName().empty()) {
         Printer << " ";
         Printer.printName(name, PrintNameContext::FunctionParameterLocal);
       }
       Printer << ": ";
     } else {
-      if (!name.empty()) {
+      if (!name.getBaseName().empty()) {
         Printer.printName(name, PrintNameContext::TupleElement);
         Printer << ": ";
       }

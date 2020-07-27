@@ -514,7 +514,8 @@ static std::string getDifferentiationParametersClauseString(
         assert(param.getIndex() <= paramList->size() &&
                "wrt parameter is out of range");
         auto *funcParam = paramList->get(param.getIndex());
-        printer << funcParam->getNameStr();
+        llvm::SmallString<32> scratch;
+        printer << funcParam->getNameStr(scratch);
         break;
       }
     }, [&] { printer << ", "; });

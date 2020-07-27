@@ -619,7 +619,9 @@ public:
   // after or instead of the expression they're looking at.  Only call this
   // if the variable has an initializer.
   Added<Stmt *> logVarDecl(VarDecl *VD) {
-    if (isa<ConstructorDecl>(TypeCheckDC) && VD->getNameStr().equals("self")) {
+    if (isa<ConstructorDecl>(TypeCheckDC) &&
+        VD->getName().isSimpleName() &&
+        VD->getBaseName().str().equals("self")) {
       // Don't log "self" in a constructor
       return nullptr;
     }

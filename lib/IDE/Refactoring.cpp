@@ -3873,7 +3873,8 @@ bool RefactoringActionConvertToComputedProperty::performChange() {
   
   OS << tok::kw_var << Space;
   // Add var name
-  OS << SV->getNameStr().str() << ":" << Space;
+  SV->getName().print(OS);
+  OS << ":" << Space;
   // For computed property must write a type of var
   if (TR) {
     OS << Lexer::getCharSourceRangeFromSourceRange(SM, TR->getSourceRange()).str();

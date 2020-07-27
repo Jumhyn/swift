@@ -844,8 +844,8 @@ ParserResult<Stmt> Parser::parseStmtYield(SourceLoc tryLoc) {
 
     SyntaxParsingContext YieldsCtxt(SyntaxContext, SyntaxKind::YieldList);
 
-    SmallVector<Identifier, 4> yieldLabels;
-    SmallVector<SourceLoc, 4> yieldLabelLocs;
+    SmallVector<DeclName, 4> yieldLabels;
+    SmallVector<DeclNameLoc, 4> yieldLabelLocs;
     SmallVector<TrailingClosure, 2> trailingClosures;
 
     status = parseExprList(tok::l_paren, tok::r_paren,

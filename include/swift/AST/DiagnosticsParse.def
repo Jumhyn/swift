@@ -739,7 +739,7 @@ ERROR(expected_type_after_arrow,none,
       "expected type after '->'", ())
 ERROR(function_type_argument_label,none,
       "function types cannot have argument labels; use '_' before %0",
-      (Identifier))
+      (DeclName))
 ERROR(expected_dynamic_func_attr,none,
       "expected a dynamically_replaceable function", ())
 
@@ -893,6 +893,8 @@ WARNING(parameter_let_var_as_attr,none,
       "'%0' in this position is interpreted as an argument label",
       (StringRef))
 
+ERROR(argument_label_compound_name,none,
+      "argument label cannot be a compound name", ())
 
 WARNING(parameter_extraneous_double_up,none,
         "extraneous duplicate parameter name; %0 already has an argument "
@@ -1140,6 +1142,8 @@ ERROR(expected_operator_ref,none,
 ERROR(invalid_postfix_operator,none,
       "operator with postfix spacing cannot start a subexpression", ())
 
+ERROR(expected_decl_name,none,
+      "expected name", ())
 ERROR(expected_member_name,PointsToFirstBadToken,
       "expected member name following '.'", ())
 ERROR(dollar_numeric_too_large,none,

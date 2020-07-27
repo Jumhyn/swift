@@ -366,7 +366,9 @@ public:
 
   VarDecl *getDecl() const { return Var; }
   Identifier getBoundName() const;
-  StringRef getNameStr() const { return Var->getNameStr(); }
+  StringRef getNameStr(llvm::SmallVectorImpl<char> &scratch) const {
+    return Var->getNameStr(scratch);
+  }
 
   SourceLoc getLoc() const { return Var->getLoc(); }
   SourceRange getSourceRange() const { return Var->getSourceRange(); }

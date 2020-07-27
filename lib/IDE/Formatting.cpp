@@ -2566,7 +2566,7 @@ private:
     ListAligner Aligner(SM, TargetLocation, ContextLoc, L, R);
     auto NumElems = TE->getNumElements() - TE->getNumTrailingElements();
     for (auto I : range(NumElems)) {
-      SourceRange ElemRange = TE->getElementNameLoc(I);
+      SourceRange ElemRange = TE->getElementNameLoc(I).getSourceRange();
       if (Expr *Elem = TE->getElement(I))
         widenOrSet(ElemRange, Elem->getSourceRange());
       assert(ElemRange.isValid());
@@ -2650,7 +2650,7 @@ private:
       SourceLoc R = getLocIfKind(SM, Parens.End, tok::r_paren);
       ListAligner Aligner(SM, TargetLocation, ContextLoc, L, R);
       for (auto &Elem: TT->getElements()) {
-        SourceRange ElemRange = Elem.NameLoc;
+        SourceRange ElemRange = Elem.NameLoc.getSourceRange();
         widenOrSet(ElemRange, Elem.UnderscoreLoc);
         if (auto *T = Elem.Type)
           widenOrSet(ElemRange, T->getSourceRange());

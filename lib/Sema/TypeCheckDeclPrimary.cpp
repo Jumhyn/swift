@@ -1493,6 +1493,23 @@ public:
       }
     }
 
+    // If the decl has a compound name, the number of labels must match the
+    // number of arguments.
+    if (VD->getName().isCompoundName()) {
+      if (!VD->getType()->is<AnyFunctionType>()) {
+        DE.diagnose(VD->getNameLoc().getBaseNameLoc(),
+                    diag::decl_compound_name_function_type,
+                    VD->getName(), VD->getType());
+      }
+      else {
+        AnyFunctionType *fnTy = VD->getType()->getAs<AnyFunctionType>();
+        if (VD->getName().getArgumentNames().size() != fnTy->getParams().size())
+          DE.diagnose(VD->getNameLoc().getBaseNameLoc(),
+                      diag::decl_compound_name_function_num_params,
+                      VD->getName(), VD->getType());
+      }
+    }
+
     // Now check all the accessors.
     VD->visitEmittedAccessors([&](AccessorDecl *accessor) {
       visit(accessor);

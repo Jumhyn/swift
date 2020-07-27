@@ -327,8 +327,10 @@ static void getPathStringToElementRec(TypeExpansionContext context,
 
     if (EltNo < NumFieldElements) {
       Result += '.';
-      if (Field.hasName())
-        Result += Field.getName().str();
+      if (Field.hasName()) {
+        SmallString<16> scratch;
+        Result += Field.getName().getString(scratch);
+      }
       else
         Result += llvm::utostr(FieldNo);
       return getPathStringToElementRec(context, Module, FieldTy, EltNo, Result);

@@ -594,7 +594,7 @@ public:
 
     llvm::SmallVector<Expr *, 3> TupleArgs{};
     TupleArgs.append({*AddedBeforeLogger, E, *AddedAfterLogger});
-    SmallVector<Identifier, 3> ThreeArgLabels(TupleArgs.size(), Identifier());
+    SmallVector<DeclName, 3> ThreeArgLabels(TupleArgs.size(), DeclName());
     TupleExpr *Tup =
         TupleExpr::createImplicit(Context, TupleArgs, ThreeArgLabels);
     SmallVector<TupleTypeElt, 3> TupleTypes{};

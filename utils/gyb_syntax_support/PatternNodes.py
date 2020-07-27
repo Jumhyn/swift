@@ -45,6 +45,12 @@ PATTERN_NODES = [
                    ]),
          ]),
 
+    # name-pattern -> unqualified-decl-name
+    Node('DeclNamePattern', kind='Pattern',
+         children=[
+             Child('Name', kind='DeclName')
+         ]),
+
     # as-pattern -> pattern 'as' type
     Node('AsTypePattern', kind='Pattern',
          children=[

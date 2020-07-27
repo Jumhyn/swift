@@ -712,7 +712,7 @@ bool AbstractFunctionDecl::isTransparent() const {
 
 bool ParameterList::hasInternalParameter(StringRef Prefix) const {
   for (auto param : *this) {
-    if (param->hasName() && param->getNameStr().startswith(Prefix))
+    if (param->hasName() && param->getBaseName().str().startswith(Prefix))
       return true;
     auto argName = param->getArgumentName();
     if (!argName.empty() && argName.str().startswith(Prefix))
@@ -6503,7 +6503,8 @@ static void writeTupleOfNils(TupleType *type, llvm::raw_ostream &os) {
   for (unsigned i = 0; i < type->getNumElements(); ++i) {
     auto &elt = type->getElement(i);
     if (elt.hasName()) {
-      os << elt.getName().str() << ": ";
+      elt.getName().print(os);
+      os << ": ";
     }
 
     if (elt.getType()->getOptionalObjectType()) {

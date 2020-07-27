@@ -1518,8 +1518,8 @@ TypeExpr *PreCheckExpression::simplifyTypeExpr(Expr *E) {
 
       // If the tuple element has a label, propagate it.
       elt.Type = eltTE->getTypeRepr();
-      Identifier name = TE->getElementName(EltNo);
-      if (!name.empty()) {
+      DeclName name = TE->getElementName(EltNo);
+      if (!name.getBaseName().empty()) {
         elt.Name = name;
         elt.NameLoc = TE->getElementNameLoc(EltNo);
       }
@@ -2487,7 +2487,7 @@ bool TypeChecker::typeCheckExprPattern(ExprPattern *EP, DeclContext *DC,
   Expr *matchArgElts[] = {EP->getSubExpr(), matchVarRef};
   auto *matchArgs
     = TupleExpr::create(Context, EP->getSubExpr()->getSourceRange().Start,
-                        matchArgElts, { }, { },
+                        matchArgElts, SmallVector<DeclName, 0>(), { },
                         EP->getSubExpr()->getSourceRange().End,
                         /*HasTrailingClosure=*/false, /*Implicit=*/true);
   
@@ -2732,7 +2732,7 @@ TypeChecker::coerceToRValue(ASTContext &Context, Expr *expr,
       elements.reserve(tuple->getElements().size());
       for (unsigned i = 0, n = tuple->getNumElements(); i != n; ++i) {
         Type type = getType(tuple->getElement(i));
-        Identifier name = tuple->getElementName(i);
+        DeclName name = tuple->getElementName(i);
         elements.push_back(TupleTypeElt(type, name));
       }
       setType(tuple, TupleType::get(elements, Context));

@@ -274,15 +274,15 @@ Parser::parseParameterClause(SourceLoc &leftParenLoc,
     
     if (startsParameterName(*this, isClosure)) {
       // identifier-or-none for the first name
-      param.FirstName = parseDeclNameRef(param.FirstNameLoc,
-                                         diag::expected_pattern,
-                                DeclNameFlag::AllowCompoundNames).getFullName();
+      param.FirstNameLoc = consumeArgumentLabel(param.FirstName,
+                                                /*allowCompound=*/true);
+
 
       // identifier-or-none? for the second name
-      if (Tok.canBeArgumentLabel())
-        param.SecondName = parseDeclNameRef(param.SecondNameLoc,
-                                           diag::expected_pattern,
-                                DeclNameFlag::AllowCompoundNames).getFullName();
+      if (Tok.canBeArgumentLabel()) {
+        param.SecondNameLoc = consumeArgumentLabel(param.SecondName,
+                                                   /*allowCompound=*/true);
+      }
 
       // Operators, closures, and enum elements cannot have API names.
       if ((paramContext == ParameterContextKind::Operator ||
@@ -914,8 +914,8 @@ ParserResult<Pattern> Parser::parseTypedPattern() {
         
         SourceLoc lParenLoc, rParenLoc;
         SmallVector<Expr *, 2> args;
-        SmallVector<Identifier, 2> argLabels;
-        SmallVector<SourceLoc, 2> argLabelLocs;
+        SmallVector<DeclName, 2> argLabels;
+        SmallVector<DeclNameLoc, 2> argLabelLocs;
         SmallVector<TrailingClosure, 2> trailingClosures;
         ParserStatus status = parseExprList(tok::l_paren, tok::r_paren,
                                             /*isPostfix=*/true,
@@ -980,8 +980,8 @@ ParserResult<Pattern> Parser::parsePattern() {
   case tok::identifier: {
     PatternCtx.setCreateSyntax(SyntaxKind::IdentifierPattern);
     DeclNameLoc NameLoc;
-    auto Name = parseDeclNameRef(NameLoc, diag::expected_pattern,
-                                 DeclNameFlag::AllowCompoundNames);
+    auto Name = parseDeclName(NameLoc, diag::expected_pattern,
+                              DeclNameFlag::AllowCompoundNames);
     if (Tok.isIdentifierOrUnderscore() && !Tok.isContextualDeclKeyword())
       diagnoseConsecutiveIDs(Name.getBaseIdentifier().str(),
                              NameLoc.getBaseNameLoc(),
@@ -989,8 +989,7 @@ ParserResult<Pattern> Parser::parsePattern() {
                              ? "constant" : "variable");
 
     return makeParserResult(createBindingFromPattern(NameLoc.getBaseNameLoc(),
-                                                     Name.getFullName(),
-                                                     introducer));
+                                                     Name, introducer));
   }
     
   case tok::code_complete:

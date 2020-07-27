@@ -404,7 +404,8 @@ namespace {
     TupleFieldInfo getFieldInfo(unsigned index,
                                 const TupleTypeElt &field,
                                 const TypeInfo &fieldTI) {
-      StringRef name = field.hasName() ? field.getName().str() : "elt";
+      // TODO: Fix this
+      StringRef name = field.hasName() ? field.getName().getBaseIdentifier().str() : "elt";
       return TupleFieldInfo(index, name, fieldTI);
     }
 

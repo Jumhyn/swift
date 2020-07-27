@@ -3088,9 +3088,9 @@ ERROR(derivative_attr_result_value_not_differentiable,none,
       "'@derivative(of:)' attribute requires function to return a two-element "
       "tuple; first element type %0 must conform to 'Differentiable'", (Type))
 ERROR(derivative_attr_result_func_type_mismatch,none,
-      "function result's %0 type does not match %1", (Identifier, DeclName))
+      "function result's %0 type does not match %1", (DeclName, DeclName))
 NOTE(derivative_attr_result_func_type_mismatch_note,none,
-     "%0 does not have expected type %1", (Identifier, Type))
+     "%0 does not have expected type %1", (DeclName, Type))
 NOTE(derivative_attr_result_func_original_note,none,
      "%0 defined here", (DeclName))
 ERROR(derivative_attr_not_in_same_file_as_original,none,
@@ -3897,7 +3897,7 @@ NOTE(enum_element_pattern_assoc_values_remove,none,
 ERROR(tuple_pattern_length_mismatch,none,
       "tuple pattern has the wrong length for tuple type %0", (Type))
 ERROR(tuple_pattern_label_mismatch,none,
-      "tuple pattern element label %0 must be %1", (Identifier, Identifier))
+      "tuple pattern element label %0 must be %1", (Identifier, DeclName))
 ERROR(enum_element_pattern_member_not_found,none,
       "enum case %0 not found in type %1", (DeclNameRef, Type))
 ERROR(optional_element_pattern_not_valid_type,none,
@@ -4315,6 +4315,15 @@ ERROR(objc_enum_case_multi,none,
 
 ERROR(objc_extension_not_class,none,
       "'@objc' can only be applied to an extension of a class", ())
+
+ERROR(decl_compound_name_function_type,none,
+      "declaration with compound name %0 has non-function type %1",
+      (DeclName, Type))
+
+ERROR(decl_compound_name_function_num_params,none,
+      "number of argument labels in compound name %0 must match number of"
+      "parameters in function type %1",
+      (DeclName, Type))
 
 // If you change this, also change enum ObjCReason
 #define OBJC_ATTR_SELECT "select{marked @_cdecl|marked dynamic|marked @objc|marked @IBOutlet|marked @IBAction|marked @IBSegueAction|marked @NSManaged|a member of an @objc protocol|implicitly @objc|an @objc override|an implementation of an @objc requirement|marked @IBInspectable|marked @GKInspectable|in an @objc extension of a class (without @nonobjc)}"

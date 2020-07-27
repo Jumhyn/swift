@@ -3630,7 +3630,8 @@ public:
           SemanticContextKind::CurrentNominal, expectedTypeContext);
       addLeadingDot(Builder);
       if (TupleElt.hasName()) {
-        Builder.addBaseName(TupleElt.getName().str());
+        SmallString<16> scratch;
+        Builder.addBaseName(TupleElt.getName().getString(scratch));
       } else {
         llvm::SmallString<4> IndexStr;
         {

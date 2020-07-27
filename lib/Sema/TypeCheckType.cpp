@@ -3443,7 +3443,7 @@ Type TypeResolver::resolveTupleType(TupleTypeRepr *repr,
   SmallVector<TupleTypeElt, 8> elements;
   elements.reserve(repr->getNumElements());
 
-  llvm::SmallDenseSet<Identifier> seenEltNames;
+  llvm::SmallDenseSet<DeclName> seenEltNames;
   seenEltNames.reserve(repr->getNumElements());
 
   auto elementOptions = options;
@@ -3470,6 +3470,19 @@ Type TypeResolver::resolveTupleType(TupleTypeRepr *repr,
 
     auto eltName = repr->getElementName(i);
 
+    if (eltName.isCompoundName()) {
+      if (auto *fnTy = ty->getAs<AnyFunctionType>()) {
+        assert(eltName.getArgumentNames().size() == fnTy->getParams().size());
+        SmallVector<AnyFunctionType::Param, 4> params;
+        auto names = eltName.getArgumentNames();
+        auto origParams = fnTy->getParams();
+        for (size_t i = 0; i < origParams.size(); i++)
+          params.push_back(origParams[i].withLabel(names[i]));
+
+        ty = FunctionType::get(params, fnTy->getResult());  
+      }
+    }
+
     elements.emplace_back(ty, eltName, ParameterTypeFlags());
 
     if (eltName.empty())
@@ -3491,7 +3504,7 @@ Type TypeResolver::resolveTupleType(TupleTypeRepr *repr,
       && !(options & TypeResolutionFlags::SILType)) {
     if (!complained) {
       diagnose(repr->getElementNameLoc(0), diag::tuple_single_element)
-        .fixItRemoveChars(repr->getElementNameLoc(0),
+        .fixItRemoveChars(repr->getElementNameLoc(0).getStartLoc(),
                           repr->getElementType(0)->getStartLoc());
     }
 

@@ -129,8 +129,9 @@ static std::vector<CharSourceRange> getLabelRanges(const ParameterList* List,
       LabelRanges.push_back(Lexer::getCharSourceRangeFromSourceRange(
                                 SM, SourceRange(NameLoc, ParamLoc)));
     } else {
+      llvm::SmallString<16> scratch;
       NameLoc = ParamLoc;
-      NameLength = Param->getNameStr().size();
+      NameLength = Param->getNameStr(scratch).size();
       if (SM.extractText({NameLoc, 1}) == "`")
         NameLength += 2;
       LabelRanges.push_back(CharSourceRange(NameLoc, NameLength));
@@ -398,7 +399,8 @@ std::pair<bool, Expr*> NameMatcher::walkToExprPre(Expr *E) {
         for (unsigned i = 0, e = T->getNumElements(); i != e; ++i) {
           auto Name = T->getElementName(i);
           if (!Name.empty()) {
-            tryResolve(ASTWalker::ParentTy(E), T->getElementNameLoc(i));
+            tryResolve(ASTWalker::ParentTy(E),
+                       T->getElementNameLoc(i).getBaseNameLoc());
             if (isDone())
               break;
           }
@@ -897,7 +899,7 @@ getCallArgInfo(SourceManager &SM, Expr *Arg, LabelRangeEndAt EndKind) {
       SourceLoc LabelEnd(LabelStart);
 
       bool IsTrailingClosure = FirstTrailing && ElemIndex >= *FirstTrailing;
-      SourceLoc NameLoc = TE->getElementNameLoc(ElemIndex);
+      SourceLoc NameLoc = TE->getElementNameLoc(ElemIndex).getBaseNameLoc();
       if (NameLoc.isValid()) {
         LabelStart = NameLoc;
         if (EndKind == LabelRangeEndAt::LabelNameOnly || IsTrailingClosure) {

@@ -1089,7 +1089,9 @@ ConstraintSystem::TypeMatchResult constraints::matchCallArguments(
           synthesizedArgs;
       for (unsigned i = 0, n = argTuple->getNumElements(); i != n; ++i) {
         const auto &elt = argTuple->getElement(i);
-        AnyFunctionType::Param argument(elt.getType(), elt.getName());
+        assert(elt.getName().isSimpleName());
+        AnyFunctionType::Param argument(elt.getType(),
+                                        elt.getName().getBaseIdentifier());
         synthesizedArgs.push_back(std::make_pair(i, argument));
         argsWithLabels.push_back(argument);
       }
@@ -1588,7 +1590,8 @@ static bool fixMissingArguments(ConstraintSystem &cs, ASTNode anchor,
     if (auto *tuple = argType->getAs<TupleType>()) {
       args.pop_back();
       for (const auto &elt : tuple->getElements()) {
-        args.push_back(AnyFunctionType::Param(elt.getType(), elt.getName(),
+        args.push_back(AnyFunctionType::Param(elt.getType(),
+                                              elt.getName().getBaseIdentifier(),
                                               elt.getParameterFlags()));
       }
     } else if (auto *typeVar = argType->getAs<TypeVariableType>()) {
@@ -6009,11 +6012,8 @@ performMemberLookup(ConstraintKind constraintKind, DeclNameRef memberName,
   // of the tuple.
   auto &ctx = getASTContext();
   if (auto baseTuple = baseObjTy->getAs<TupleType>()) {
-    // Tuples don't have compound-name members.
-    if (!memberName.isSimpleName() || memberName.isSpecial())
-      return result;  // No result.
-
-    StringRef nameStr = memberName.getBaseIdentifier().str();
+    SmallString<16> scratch;
+    StringRef nameStr = memberName.getString(scratch);
     int fieldIdx = -1;
     // Resolve a number reference into the tuple type.
     unsigned Value = 0;
@@ -6021,7 +6021,7 @@ performMemberLookup(ConstraintKind constraintKind, DeclNameRef memberName,
         Value < baseTuple->getNumElements()) {
       fieldIdx = Value;
     } else {
-      fieldIdx = baseTuple->getNamedElementId(memberName.getBaseIdentifier());
+      fieldIdx = baseTuple->getNamedElementId(memberName.getFullName());
     }
     
     if (fieldIdx == -1)

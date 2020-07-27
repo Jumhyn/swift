@@ -3139,7 +3139,8 @@ namespace {
           TupleType::get(TupleTypeElt(paramTy, ctx.Id_dynamicMember), ctx);
 
       Expr *index =
-          TupleExpr::createImplicit(ctx, argExpr, ctx.Id_dynamicMember);
+          TupleExpr::createImplicit(ctx, argExpr,
+                                    DeclName(ctx.Id_dynamicMember));
       index->setType(tupleTy);
       cs.cacheType(index);
 
@@ -5132,7 +5133,7 @@ Expr *ExprRewriter::coerceTupleToTuple(Expr *expr,
 
   // Convert each OpaqueValueExpr to the correct type.
   SmallVector<Expr *, 4> converted;
-  SmallVector<Identifier, 4> labels;
+  SmallVector<DeclName, 4> labels;
   SmallVector<TupleTypeElt, 4> convertedElts;
 
   bool anythingShuffled = false;
@@ -5557,7 +5558,7 @@ Expr *ExprRewriter::coerceCallArguments(Expr *arg, AnyFunctionType *funcType,
 
   auto getLabelLoc = [&](unsigned i) -> SourceLoc {
     if (argTuple)
-      return argTuple->getElementNameLoc(i);
+      return argTuple->getElementNameLoc(i).getBaseNameLoc();
 
     assert(i == 0 && "Scalar only has a single argument");
     return SourceLoc();
@@ -7091,9 +7092,10 @@ ExprRewriter::buildDynamicCallable(ApplyExpr *apply, SelectedOverload selected,
     SmallVector<Identifier, 4> names;
     SmallVector<Expr *, 4> dictElements;
     for (unsigned i = 0, n = arg->getNumElements(); i < n; ++i) {
+      auto id = arg->getElementName(i).getBaseIdentifier();
       Expr *labelExpr =
-        new (ctx) StringLiteralExpr(arg->getElementName(i).get(),
-                                    arg->getElementNameLoc(i),
+        new (ctx) StringLiteralExpr(id.get(),
+                                    arg->getElementNameLoc(i).getBaseNameLoc(),
                                     /*Implicit*/ true);
       cs.setType(labelExpr, keyType);
       handleStringLiteralExpr(cast<LiteralExpr>(labelExpr));

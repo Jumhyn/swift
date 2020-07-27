@@ -149,7 +149,8 @@ class ValidateIfConfigCondition :
       // Apply the operator with left-associativity by folding the first two
       // operands.
       TupleExpr *Arg = TupleExpr::create(Ctx, SourceLoc(), { LHS, RHS },
-                                         { }, { }, SourceLoc(),
+                                         SmallVector<DeclName, 2>(), { },
+                                         SourceLoc(),
                                          /*HasTrailingClosure=*/false,
                                          /*Implicit=*/true);
       LHS = new (Ctx) BinaryExpr(Op, Arg, /*implicit*/false);

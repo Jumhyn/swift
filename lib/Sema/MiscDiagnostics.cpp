@@ -264,7 +264,7 @@ static void diagSyntacticUseRestrictions(const Expr *E, const DeclContext *DC,
           if (tupleExpr->getNumElements() == 1) {
             Ctx.Diags.diagnose(tupleExpr->getElementNameLoc(0),
                                diag::tuple_single_element)
-              .fixItRemoveChars(tupleExpr->getElementNameLoc(0),
+              .fixItRemoveChars(tupleExpr->getElementNameLoc(0).getStartLoc(),
                                 tupleExpr->getElement(0)->getStartLoc());
           }
         }
@@ -285,11 +285,11 @@ static void diagSyntacticUseRestrictions(const Expr *E, const DeclContext *DC,
         if ((!CallArgs.count(tupleExpr)) || isEnumCase) {
           auto diagnose = false;
 
-          llvm::SmallDenseSet<Identifier> names;
+          llvm::SmallDenseSet<DeclName> names;
           names.reserve(tupleExpr->getNumElements());
 
           for (auto name : tupleExpr->getElementNames()) {
-            if (name.empty())
+            if (name.getBaseName().empty())
               continue;
 
             if (names.count(name) == 1) {
@@ -3323,7 +3323,7 @@ static void checkStmtConditionTrailingClosure(ASTContext &ctx, const Expr *E) {
       Identifier closureLabel;
       if (auto TT = argsTy->getAs<TupleType>()) {
         assert(TT->getNumElements() != 0 && "Unexpected empty TupleType");
-        closureLabel = TT->getElement(TT->getNumElements() - 1).getName();
+        closureLabel = TT->getElement(TT->getNumElements() - 1).getName().getBaseIdentifier();
       }
 
       auto diag = Ctx.Diags.diagnose(closureLoc,

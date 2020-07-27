@@ -4916,8 +4916,8 @@ public:
   Identifier getBaseName() const { return getBaseIdentifier(); }
 
   /// Returns the string for the base name, or "_" if this is unnamed.
-  StringRef getNameStr() const {
-    return hasName() ? getBaseIdentifier().str() : "_";
+  StringRef getNameStr(llvm::SmallVectorImpl<char> &scratch) const {
+    return hasName() ? getName().getString(scratch) : "_";
   }
 
   /// Get the type of the variable within its context. If the context is generic,

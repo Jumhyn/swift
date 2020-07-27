@@ -3996,7 +3996,8 @@ public:
       assert(elt.getParameterFlags().isNone());
       TupleTypeEltLayout::emitRecord(
           S.Out, S.ScratchRecord, abbrCode,
-          S.addDeclBaseNameRef(elt.getName()),
+          // TODO: Handle compound names here...
+          S.addDeclBaseNameRef(elt.getName().getBaseName()),
           S.addTypeRef(elt.getType()));
     }
   }

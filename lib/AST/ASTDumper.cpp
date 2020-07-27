@@ -467,8 +467,10 @@ namespace {
       PrintWithColorRAII(OS, ParenthesisColor) << ')';
     }
     void visitNamedPattern(NamedPattern *P) {
+      llvm::SmallVector<char, 16> scratch;
       printCommon(P, "pattern_named");
-      PrintWithColorRAII(OS, IdentifierColor) << " '" << P->getNameStr() << "'";
+      PrintWithColorRAII(OS, IdentifierColor) << " '";
+      PrintWithColorRAII(OS, IdentifierColor) << P->getNameStr(scratch) << "'";
       PrintWithColorRAII(OS, ParenthesisColor) << ')';
     }
     void visitAnyPattern(AnyPattern *P) {
@@ -2140,9 +2142,12 @@ public:
       PrintWithColorRAII(OS, IdentifierColor) << " names=";
 
       interleave(E->getElementNames(),
-                 [&](Identifier name) {
-                   PrintWithColorRAII(OS, IdentifierColor)
-                     << (name.empty()?"''":name.str());
+                 [&](DeclName name) {
+                   PrintWithColorRAII color(OS, IdentifierColor);
+                   if (name.getBaseName().empty())
+                     OS << "''";
+                   else
+                     name.print(OS);
                  },
                  [&] { PrintWithColorRAII(OS, IdentifierColor) << ","; });
     }
@@ -3000,10 +3005,18 @@ public:
       for (unsigned i = 0, end = T->getNumElements(); i != end; ++i) {
         if (i) OS << ",";
         auto name = T->getElementName(i);
-        if (T->isNamedParameter(i))
-          OS << (name.empty() ? "_" : "_ " + name.str());
-        else
-          OS << (name.empty() ? "''" : name.str());
+        if (T->isNamedParameter(i)) {
+          OS << (name.getBaseName().empty() ? "_" : "_ ");
+          if (!name.getBaseName().empty())
+            name.print(OS);
+        }
+        else {
+          if (name.getBaseName().empty()) {
+            OS << "''";
+          } else {
+            name.print(OS);
+          }
+        }
       }
     }
 
@@ -3541,8 +3554,10 @@ namespace {
         OS << "\n";
         OS.indent(Indent) << "(";
         PrintWithColorRAII(OS, TypeFieldColor) << "tuple_type_elt";
-        if (elt.hasName())
-          printField("name", elt.getName().str());
+        if (elt.hasName()) {
+          SmallString<16> scratch;
+          printField("name", elt.getName().getString(scratch));
+        }
         dumpParameterFlags(elt.getParameterFlags());
         printRec(elt.getType());
         OS << ")";

@@ -532,7 +532,8 @@ GuardStmt *DerivedConformance::returnIfNotEqualGuard(ASTContext &C,
     DeclNameLoc());
   auto cmpArgsTuple = TupleExpr::create(C, SourceLoc(),
                                         { lhsExpr, rhsExpr },
-                                        { }, { }, SourceLoc(),
+                                        SmallVector<DeclName, 2>(), { },
+                                        SourceLoc(),
                                         /*HasTrailingClosure*/false,
                                         /*Implicit*/true);
   auto cmpExpr = new (C) BinaryExpr(cmpFuncExpr, cmpArgsTuple,
@@ -572,7 +573,8 @@ GuardStmt *DerivedConformance::returnComparisonIfNotEqualGuard(ASTContext &C,
     DeclNameLoc());
   auto ltArgsTuple = TupleExpr::create(C, SourceLoc(),
                                         { lhsExpr, rhsExpr },
-                                        { }, { }, SourceLoc(),
+                                        SmallVector<DeclName, 2>(), { },
+                                        SourceLoc(),
                                         /*HasTrailingClosure*/false,
                                         /*Implicit*/true);
   auto ltExpr = new (C) BinaryExpr(ltFuncExpr, ltArgsTuple, /*Implicit*/true);
@@ -739,7 +741,7 @@ DerivedConformance::enumElementPayloadSubpattern(EnumElementDecl *enumElementDec
       namedPattern->setImplicit();
       auto letPattern =
           BindingPattern::createImplicit(C, /*isLet*/ true, namedPattern);
-      elementPatterns.push_back(TuplePatternElt(tupleElement.getName(),
+      elementPatterns.push_back(TuplePatternElt(tupleElement.getName().getBaseIdentifier(),
                                                 SourceLoc(), letPattern));
     }
 
