@@ -911,6 +911,7 @@ static ArrayRef<Identifier> getArgumentLabelsFromArgument(
       for (auto &name : tuple->getElementNames()) {
         scratch.push_back(name.getBaseIdentifier());
       }
+      return scratch;
     }
 
     scratch.assign(tuple->getNumElements(), Identifier());

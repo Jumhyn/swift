@@ -1380,7 +1380,7 @@ ParserResult<Expr> Parser::parseExprPostfix(Diag<> ID, bool isExprBasic) {
   return Result;
 }
 
-bool Parser::canConsumeCompoundDeclName() {
+bool Parser::canConsumeCompoundDeclName(Token *following) {
   Parser::BacktrackingScope backtrack(*this);
 
   if (!Tok.isAny(tok::identifier, tok::kw_self))
@@ -1404,8 +1404,11 @@ bool Parser::canConsumeCompoundDeclName() {
     return false;
 
   // If we have just a single argument label, this is a compound name!
-  if (Tok.is(tok::r_paren))
+  if (Tok.is(tok::r_paren)) {
+    if (following)
+      *following = peekToken();
     return true;
+  }
 
   if (!Tok.canBeArgumentLabel())
     return false;
@@ -1419,8 +1422,15 @@ bool Parser::canConsumeCompoundDeclName() {
   if (!consumeIf(tok::colon))
     return false;
 
+  skipUntil(tok::r_paren);
+
+  if (Tok.isNot(tok::r_paren))
+    return false;
+
   // If we have at least two argument labels in a row, then this isn't a call,
   // so try parsing it as a name.
+  if (following)
+    *following = peekToken();
   return true;
 }
 
@@ -2116,12 +2126,10 @@ void Parser::parseOptionalArgumentLabel(DeclName &name, DeclNameLoc &loc,
                                         bool allowCompound) {
   assert(name.getBaseName().empty() && loc.isInvalid());
   // Check to see if there is an argument label.
-  if (Tok.canBeArgumentLabel() &&
-      (peekToken().is(tok::colon) ||
-       (allowCompound && canConsumeCompoundDeclName()))) {
-    // If we get to the end of a compound name and don't find a colon, we may
-    // need to backtrack.
-    Parser::BacktrackingScope backtrack(*this);
+  Token following;
+  if ((Tok.canBeArgumentLabel() && peekToken().is(tok::colon)) ||
+       (allowCompound && canConsumeCompoundDeclName(&following) &&
+        following.is(tok::colon))) {
     auto text = Tok.getText();
 
     // If this was an escaped identifier that need not have been escaped, say
@@ -2130,20 +2138,16 @@ void Parser::parseOptionalArgumentLabel(DeclName &name, DeclNameLoc &loc,
     // the syntax for referring to the function pointer (foo(_:)),
     auto escaped = Tok.isEscapedIdentifier();
     auto underscore = Tok.is(tok::kw__) || (escaped && text == "_");
-    bool shouldDiagnose = escaped && !underscore && canBeArgumentLabel(text);
+    if (escaped && !underscore && canBeArgumentLabel(text)) {
+      SourceLoc start = Tok.getLoc();
+      SourceLoc end = start.getAdvancedLoc(Tok.getLength());
+      diagnose(Tok, diag::escaped_parameter_name, text)
+          .fixItRemoveChars(start, start.getAdvancedLoc(1))
+          .fixItRemoveChars(end.getAdvancedLoc(-1), end);
+    }
 
     loc = consumeArgumentLabel(name, allowCompound);
-
-    if (consumeIf(tok::colon)) {
-      backtrack.cancelBacktrack();
-      if (shouldDiagnose) {
-        SourceLoc start = Tok.getLoc();
-        SourceLoc end = start.getAdvancedLoc(Tok.getLength());
-        diagnose(Tok, diag::escaped_parameter_name, text)
-            .fixItRemoveChars(start, start.getAdvancedLoc(1))
-            .fixItRemoveChars(end.getAdvancedLoc(-1), end);
-      }
-    }
+    consumeToken(tok::colon);
   }
 }
 
@@ -2596,6 +2600,7 @@ parseClosureSignatureIfPresent(SourceRange &bracketRange,
       // "unowned(safe/unsafe)".
       SourceLoc ownershipLocStart, ownershipLocEnd;
       auto ownershipKind = ReferenceOwnership::Strong;
+      Token following;
       if (Tok.isContextualKeyword("weak")){
         ownershipLocStart = ownershipLocEnd = consumeToken(tok::identifier);
         ownershipKind = ReferenceOwnership::Weak;
@@ -2616,17 +2621,21 @@ parseClosureSignatureIfPresent(SourceRange &bracketRange,
           if (!consumeIf(tok::r_paren, ownershipLocEnd))
             diagnose(Tok, diag::attr_unowned_expected_rparen);
         }
-      } else if (Tok.isAny(tok::identifier, tok::kw_self) &&
-                 peekToken().isAny(tok::equal, tok::comma, tok::r_square)) {
-        // "x = 42", "x," and "x]" are all strong captures of x.
-      } else {
-        diagnose(Tok, diag::expected_capture_specifier);
-        skipUntil(tok::comma, tok::r_square);
-        continue;
       }
 
-      if (Tok.isNot(tok::identifier, tok::kw_self)) {
-        diagnose(Tok, diag::expected_capture_specifier_name);
+      if (Tok.isAny(tok::identifier, tok::kw_self) &&
+                 peekToken().isAny(tok::equal, tok::comma, tok::r_square)) {
+        following = peekToken();
+        // "x = 42", "x," and "x]" are all strong captures of x.
+      } else if (canConsumeCompoundDeclName(&following) &&
+                 following.isAny(tok::equal, tok::comma, tok::r_square)) {
+        // "f(x:) = { _ in }, "f(x:)," and "f(x:)]" are all strong captures of
+        // f(x:).
+      } else {
+        if (ownershipLocStart.isValid())
+          diagnose(Tok, diag::expected_decl_name);
+        else
+          diagnose(Tok, diag::expected_capture_specifier);
         skipUntil(tok::comma, tok::r_square);
         continue;
       }
@@ -2634,17 +2643,26 @@ parseClosureSignatureIfPresent(SourceRange &bracketRange,
       // Squash all tokens, if any, as the specifier of the captured item.
       CapturedItemCtx.collectNodesInPlace(SyntaxKind::TokenList);
 
-      // The thing being capture specified is an identifier, or as an identifier
+      // The thing being capture specified is a decl name, or is a decl name
       // followed by an expression.
       Expr *initializer;
-      Identifier name;
-      SourceLoc nameLoc = Tok.getLoc();
+      DeclName name;
+      DeclNameLoc nameLoc;
       SourceLoc equalLoc;
-      if (peekToken().isNot(tok::equal)) {
+
+      if (following.isNot(tok::equal)) {
         // If this is the simple case, then the identifier is both the name and
         // the expression to capture.
-        name = Context.getIdentifier(Tok.getText());
         initializer = parseExprIdentifier();
+        if (auto *DRE = dyn_cast<DeclRefExpr>(initializer)) {
+          name = DRE->getDecl()->getName();
+          nameLoc = DRE->getNameLoc();
+        } else if (auto *UDRE = dyn_cast<UnresolvedDeclRefExpr>(initializer)) {
+          name = UDRE->getName().getFullName();
+          nameLoc = UDRE->getNameLoc();
+        } else {
+          assert(false && "Invalid expr type in capture list");
+        }
 
         // It is a common error to try to capture a nested field instead of just
         // a local name, reject it with a specific error message.
@@ -2656,7 +2674,9 @@ parseClosureSignatureIfPresent(SourceRange &bracketRange,
 
       } else {
         // Otherwise, the name is a new declaration.
-        consumeIdentifier(&name);
+        // Otherwise, the name is a new declaration.
+        name = parseDeclName(nameLoc, diag::expected_decl_name,
+                                  DeclNameFlag::AllowCompoundNames);
         equalLoc = consumeToken(tok::equal);
 
         auto ExprResult = parseExpr(diag::expected_init_capture_specifier);
@@ -2689,8 +2709,8 @@ parseClosureSignatureIfPresent(SourceRange &bracketRange,
 
       auto *PBD = PatternBindingDecl::create(
           Context, /*StaticLoc*/ SourceLoc(), StaticSpellingKind::None,
-          /*VarLoc*/ nameLoc, pattern, /*EqualLoc*/ equalLoc, initializer,
-          CurDeclContext);
+          /*VarLoc*/ nameLoc.getBaseNameLoc(), pattern, /*EqualLoc*/ equalLoc,
+          initializer, CurDeclContext);
 
         auto CLE = CaptureListEntry(VD, PBD);
         if (CLE.isSimpleSelfCapture())

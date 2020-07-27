@@ -1497,7 +1497,10 @@ public:
                                SmallVectorImpl<Identifier> &outLabels,
                                SmallVectorImpl<SourceLoc> &outLocs);
 
-  bool canConsumeCompoundDeclName();
+  /// Checks if there's a compound decl name to consume, populates \c following
+  /// with the token immediately following the name if so. If there is no name
+  /// to consume, \c following remains unchanged.
+  bool canConsumeCompoundDeclName(Token *following = nullptr);
 
   enum class DeclNameFlag : uint8_t {
     /// If passed, operator basenames are allowed.

@@ -1085,8 +1085,8 @@ ParserResult<TypeRepr> Parser::parseTypeTupleBody() {
     bool isSimpleLabel = Tok.canBeArgumentLabel() &&
       (peekToken().is(tok::colon) || peekToken().canBeArgumentLabel());
 
-    if (isSimpleLabel ||
-        (Tok.canBeArgumentLabel() && canConsumeCompoundDeclName())) {
+
+    if (isSimpleLabel || canConsumeCompoundDeclName()) {
       // Consume a name.
       element.NameLoc = consumeArgumentLabel(element.Name,
                                              /*allowCompound=*/true);

@@ -698,7 +698,7 @@ static Optional<unsigned>
 getParamParentNameOffset(const ValueDecl *VD, SourceLoc Cursor) {
   if (Cursor.isInvalid())
     return None;
-  SourceLoc Loc;
+  DeclNameLoc Loc;
   if (auto PD = dyn_cast<ParamDecl>(VD)) {
 
     // Avoid returning parent loc for internal-only names.
@@ -719,7 +719,8 @@ getParamParentNameOffset(const ValueDecl *VD, SourceLoc Cursor) {
   if (Loc.isInvalid())
     return None;
   auto &SM = VD->getASTContext().SourceMgr;
-  return SM.getLocOffsetInBuffer(Loc, SM.findBufferContainingLoc(Loc));
+  return SM.getLocOffsetInBuffer(Loc.getStartLoc(),
+                                 SM.findBufferContainingLoc(Loc.getStartLoc()));
 }
 
 /// Returns true on success, false on error (and sets `Diagnostic` accordingly).
