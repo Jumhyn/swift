@@ -2122,6 +2122,9 @@ void Parser::parseOptionalArgumentLabel(DeclName &name, DeclNameLoc &loc,
   if (Tok.canBeArgumentLabel() &&
       (peekToken().is(tok::colon) ||
        (allowCompound && canConsumeCompoundDeclName()))) {
+    // If we get to the end of a compound name and don't find a colon, we may
+    // need to backtrack.
+    Parser::BacktrackingScope backtrack(*this);
     auto text = Tok.getText();
 
     // If this was an escaped identifier that need not have been escaped, say
@@ -2130,16 +2133,20 @@ void Parser::parseOptionalArgumentLabel(DeclName &name, DeclNameLoc &loc,
     // the syntax for referring to the function pointer (foo(_:)),
     auto escaped = Tok.isEscapedIdentifier();
     auto underscore = Tok.is(tok::kw__) || (escaped && text == "_");
-    if (escaped && !underscore && canBeArgumentLabel(text)) {
-      SourceLoc start = Tok.getLoc();
-      SourceLoc end = start.getAdvancedLoc(Tok.getLength());
-      diagnose(Tok, diag::escaped_parameter_name, text)
-          .fixItRemoveChars(start, start.getAdvancedLoc(1))
-          .fixItRemoveChars(end.getAdvancedLoc(-1), end);
-    }
+    bool shouldDiagnose = escaped && !underscore && canBeArgumentLabel(text);
 
     loc = consumeArgumentLabel(name, allowCompound);
-    consumeToken(tok::colon);
+
+    if (consumeIf(tok::colon)) {
+      backtrack.cancelBacktrack();
+      if (shouldDiagnose) {
+        SourceLoc start = Tok.getLoc();
+        SourceLoc end = start.getAdvancedLoc(Tok.getLength());
+        diagnose(Tok, diag::escaped_parameter_name, text)
+            .fixItRemoveChars(start, start.getAdvancedLoc(1))
+            .fixItRemoveChars(end.getAdvancedLoc(-1), end);
+      }
+    }
   }
 }
 
@@ -2207,7 +2214,7 @@ static bool tryParseArgLabelList(Parser &P, Parser::DeclNameOptions flags,
 
     DeclName argName;
     DeclNameLoc argLoc;
-    P.parseOptionalArgumentLabel(argName, argLoc, /*allowCompound=*/false);
+    P.parseOptionalArgumentLabel(argName, argLoc);
 
     if (argName.isCompoundName())
       P.diagnose(argLoc.getBaseNameLoc(), diag::argument_label_compound_name)
@@ -3104,7 +3111,7 @@ Parser::parseExprList(tok leftTok, tok rightTok, SyntaxKind Kind) {
                                       subExprNameLocs,
                                       rightLoc,
                                       trailingClosures,
-                                      Kind);
+                                      Kind, /*allowCompoundLabels=*/true);
 
   // A tuple with a single, unlabeled element is just parentheses.
   if (subExprs.size() == 1 &&
@@ -3140,7 +3147,7 @@ ParserStatus Parser::parseExprList(tok leftTok, tok rightTok,
                                    SmallVectorImpl<DeclNameLoc> &exprLabelLocs,
                                    SourceLoc &rightLoc,
                                    SmallVectorImpl<TrailingClosure> &trailingClosures,
-                                   SyntaxKind Kind) {
+                                   SyntaxKind Kind, bool allowCompoundLabels) {
   StructureMarkerRAII ParsingExprList(*this, Tok);
   
   if (ParsingExprList.isFailed()) {
@@ -3158,7 +3165,7 @@ ParserStatus Parser::parseExprList(tok leftTok, tok rightTok,
     DeclName FieldName;
     DeclNameLoc FieldNameLoc;
     if (Kind != SyntaxKind::YieldStmt)
-      parseOptionalArgumentLabel(FieldName, FieldNameLoc);
+      parseOptionalArgumentLabel(FieldName, FieldNameLoc, allowCompoundLabels);
 
     // See if we have an operator decl ref '(<op>)'. The operator token in
     // this case lexes as a binary operator because it neither leads nor

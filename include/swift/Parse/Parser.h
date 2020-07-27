@@ -1601,7 +1601,8 @@ public:
                              SmallVectorImpl<DeclNameLoc> &exprLabelLocs,
                              SourceLoc &rightLoc,
                              SmallVectorImpl<TrailingClosure> &trailingClosures,
-                             syntax::SyntaxKind Kind);
+                             syntax::SyntaxKind Kind,
+                             bool allowCompoundLabels = false);
 
   ParserStatus
   parseTrailingClosures(bool isExprBasic, SourceRange calleeRange,
