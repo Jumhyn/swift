@@ -2115,10 +2115,13 @@ ParserResult<Expr> Parser::parseExprStringLiteral() {
                                       AppendingExpr));
 }
 
-void Parser::parseOptionalArgumentLabel(DeclName &name, DeclNameLoc &loc) {
+void Parser::parseOptionalArgumentLabel(DeclName &name, DeclNameLoc &loc,
+                                        bool allowCompound) {
+  assert(name.getBaseName().empty() && loc.isInvalid());
   // Check to see if there is an argument label.
   if (Tok.canBeArgumentLabel() &&
-      (peekToken().is(tok::colon) || canConsumeCompoundDeclName())) {
+      (peekToken().is(tok::colon) ||
+       (allowCompound && canConsumeCompoundDeclName()))) {
     auto text = Tok.getText();
 
     // If this was an escaped identifier that need not have been escaped, say
@@ -2135,7 +2138,7 @@ void Parser::parseOptionalArgumentLabel(DeclName &name, DeclNameLoc &loc) {
           .fixItRemoveChars(end.getAdvancedLoc(-1), end);
     }
 
-    loc = consumeArgumentLabel(name, /*allowCompound=*/true);
+    loc = consumeArgumentLabel(name, allowCompound);
     consumeToken(tok::colon);
   }
 }
@@ -2204,7 +2207,7 @@ static bool tryParseArgLabelList(Parser &P, Parser::DeclNameOptions flags,
 
     DeclName argName;
     DeclNameLoc argLoc;
-    P.parseOptionalArgumentLabel(argName, argLoc);
+    P.parseOptionalArgumentLabel(argName, argLoc, /*allowCompound=*/false);
 
     if (argName.isCompoundName())
       P.diagnose(argLoc.getBaseNameLoc(), diag::argument_label_compound_name)

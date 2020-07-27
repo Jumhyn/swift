@@ -1489,7 +1489,8 @@ public:
   /// \param name The parsed name of the label (empty if it doesn't exist, or is
   /// _)
   /// \param loc The location of the label (empty if it doesn't exist)
-  void parseOptionalArgumentLabel(DeclName &name, DeclNameLoc &loc);
+  void parseOptionalArgumentLabel(DeclName &name, DeclNameLoc &loc,
+                                  bool allowCompound = false);
 
   void getSimpleArgumentLabels(SmallVectorImpl<DeclName> &inLabels,
                                SmallVectorImpl<DeclNameLoc> &inLocs,
