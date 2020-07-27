@@ -4321,7 +4321,7 @@ ERROR(decl_compound_name_function_type,none,
       (DeclName, Type))
 
 ERROR(decl_compound_name_function_num_params,none,
-      "number of argument labels in compound name %0 must match number of"
+      "number of argument labels in compound name %0 must match number of "
       "parameters in function type %1",
       (DeclName, Type))
 

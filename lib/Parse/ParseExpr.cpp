@@ -1381,10 +1381,13 @@ ParserResult<Expr> Parser::parseExprPostfix(Diag<> ID, bool isExprBasic) {
 }
 
 bool Parser::canConsumeCompoundDeclName() {
-  assert(Tok.isAny(tok::identifier, tok::kw_self));
   Parser::BacktrackingScope backtrack(*this);
 
+  if (!Tok.isAny(tok::identifier, tok::kw_self))
+    return false;
+
   consumeToken();
+
   if (!consumeIf(tok::l_paren))
     return false;
 
