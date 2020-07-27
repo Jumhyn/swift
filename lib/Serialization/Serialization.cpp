@@ -3328,7 +3328,7 @@ public:
 
     unsigned abbrCode = S.DeclTypeAbbrCodes[VarLayout::Code];
     VarLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode,
-                          S.addDeclBaseNameRef(var->getName()),
+                          S.addDeclBaseNameRef(var->getName().getBaseIdentifier()),
                           contextID.getOpaqueValue(),
                           var->isImplicit(),
                           var->isObjC(),
@@ -3375,7 +3375,7 @@ public:
     unsigned abbrCode = S.DeclTypeAbbrCodes[ParamLayout::Code];
     ParamLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode,
         S.addDeclBaseNameRef(param->getArgumentName()),
-        S.addDeclBaseNameRef(param->getName()),
+        S.addDeclBaseNameRef(param->getName().getBaseIdentifier()),
         contextID.getOpaqueValue(),
         getRawStableParamDeclSpecifier(param->getSpecifier()),
         S.addTypeRef(interfaceType),

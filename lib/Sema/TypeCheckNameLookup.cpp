@@ -660,7 +660,7 @@ noteTypoCorrection(DeclNameLoc loc, ValueDecl *decl,
 
       auto &Diags = decl->getASTContext().Diags;
       return Diags.diagnose(loc.getBaseNameLoc(), diag::note_typo_candidate,
-                            var->getName().str());
+                            var->getBaseName().str());
     }
   }
 

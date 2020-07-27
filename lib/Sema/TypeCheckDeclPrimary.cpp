@@ -118,7 +118,7 @@ static void checkInheritanceClause(
     if (ext)
       return ext->getSourceRange().End;
 
-    return typeDecl->getNameLoc();
+    return typeDecl->getNameLoc().getBaseNameLoc();
   };
 
   // Compute the source range to be used when removing something from an
@@ -1328,12 +1328,13 @@ public:
           (VD->getName().isSimpleName(Context.Id_Type) ||
            VD->getName().isSimpleName(Context.Id_Protocol)) &&
           VD->getNameLoc().isValid() &&
-          Context.SourceMgr.extractText({VD->getNameLoc(), 1}) != "`") {
+          Context.SourceMgr.extractText({VD->getNameLoc().getBaseNameLoc(), 1})
+          != "`") {
         auto &DE = getASTContext().Diags;
         DE.diagnose(VD->getNameLoc(), diag::reserved_member_name,
                     VD->getName(), VD->getBaseIdentifier().str());
         DE.diagnose(VD->getNameLoc(), diag::backticks_to_escape)
-            .fixItReplace(VD->getNameLoc(),
+        .fixItReplace(VD->getNameLoc().getBaseNameLoc(),
                           "`" + VD->getBaseName().userFacingName().str() + "`");
       }
     }

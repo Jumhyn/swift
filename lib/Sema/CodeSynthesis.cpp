@@ -262,9 +262,9 @@ static ConstructorDecl *createImplicitConstructor(NominalTypeDecl *decl,
       }
 
       // Create the parameter.
-      auto *arg = new (ctx)
-          ParamDecl(SourceLoc(), Loc,
-                    var->getName(), Loc, var->getName(), decl);
+      auto *arg = new (ctx) ParamDecl(SourceLoc(), Loc,
+                                      var->getName().getBaseIdentifier(),
+                                      var->getNameLoc(), var->getName(), decl);
       arg->setSpecifier(ParamSpecifier::Default);
       arg->setInterfaceType(varInterfaceType);
       arg->setImplicit();

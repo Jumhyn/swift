@@ -361,7 +361,7 @@ Identifier Pattern::getBoundName() const {
 }
 
 Identifier NamedPattern::getBoundName() const {
-  return Var->getName();
+  return Var->getName().getBaseIdentifier();
 }
 
 

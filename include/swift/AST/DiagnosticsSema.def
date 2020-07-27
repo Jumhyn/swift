@@ -544,11 +544,11 @@ ERROR(expression_unused_keypath_result,none,
       "result of key path is unused", ())
 ERROR(expr_keypath_non_objc_property,none,
       "argument of '#keyPath' refers to non-'@objc' property %0",
-      (Identifier))
+      (DeclName))
 WARNING(expr_keypath_swift3_objc_inference,none,
         "argument of '#keyPath' refers to property %0 in %1 that depends on "
         "'@objc' inference deprecated in Swift 4",
-        (Identifier, Identifier))
+        (DeclName, Identifier))
 ERROR(expr_keypath_type_of_property,none,
       "cannot refer to type member %0 within instance of type %1",
       (DeclNameRef, Type))
@@ -1429,15 +1429,15 @@ ERROR(unavailable_method_non_objc_protocol,none,
       ())
 ERROR(missing_in_class_init_1,none,
       "stored property %0 requires an initial value%select{| or should be "
-      "@NSManaged}1", (Identifier, bool))
+      "@NSManaged}1", (DeclName, bool))
 ERROR(missing_in_class_init_2,none,
       "stored properties %0 and %1 require initial values%select{| or should "
       "be @NSManaged}2",
-      (Identifier, Identifier, bool))
+      (DeclName, DeclName, bool))
 ERROR(missing_in_class_init_3plus,none,
       "stored properties %0, %1, %select{and %2|%2, and others}3 "
       "require initial values%select{| or should be @NSManaged}4",
-      (Identifier, Identifier, Identifier, bool, bool))
+      (DeclName, DeclName, DeclName, bool, bool))
 NOTE(requires_stored_property_inits_here,none,
      "%select{superclass|class}1 %0 requires all stored properties to have "
      "initial values%select{| or use @NSManaged}2", (Type, bool, bool))
@@ -1446,15 +1446,15 @@ ERROR(class_without_init,none,
 NOTE(note_no_in_class_init_1,none,
      "stored property %0 without initial value prevents synthesized "
      "initializers",
-     (Identifier))
+     (DeclName))
 NOTE(note_no_in_class_init_2,none,
      "stored properties %0 and %1 without initial values prevent synthesized "
      "initializers",
-     (Identifier, Identifier))
+     (DeclName, DeclName))
 NOTE(note_no_in_class_init_3plus,none,
      "stored properties %0, %1, %select{and %2|%2, and others}3 "
      "without initial values prevent synthesized initializers",
-     (Identifier, Identifier, Identifier, bool))
+     (DeclName, DeclName, DeclName, bool))
 ERROR(missing_unimplemented_init_runtime,none,
       "standard library error: missing _unimplementedInitializer", ())
 ERROR(missing_undefined_runtime,none,
@@ -1480,7 +1480,7 @@ NOTE(inherited_default_param_here,none,
 
 WARNING(option_set_zero_constant,none,
         "static property %0 produces an empty option set",
-        (Identifier))
+        (DeclName))
 NOTE(option_set_empty_set_init,none,
      "use [] to silence this warning", ())
 
@@ -1771,7 +1771,7 @@ ERROR(extension_specialization,none,
 ERROR(extension_stored_property,none,
       "extensions must not contain stored properties", ())
 NOTE(extension_stored_property_fixit,none,
-     "Remove '=' to make %0 a computed property", (Identifier))
+     "Remove '=' to make %0 a computed property", (DeclName))
 ERROR(extension_nongeneric_trailing_where,none,
       "trailing 'where' clause for extension of non-generic type %0",
       (Identifier))
@@ -2429,7 +2429,7 @@ ERROR(override_accessor_less_available,none,
 
 ERROR(override_let_property,none,
       "cannot override immutable 'let' property %0 with the getter of a 'var'",
-      (Identifier))
+      (DeclName))
 
 
 ERROR(override_not_accessible,none,
@@ -2476,7 +2476,7 @@ ERROR(nonoverride_and_override_attr,none,
       "'override' cannot be combined with '@_nonoverride'", ())
 ERROR(override_property_type_mismatch,none,
       "property %0 with type %1 cannot override a property with type %2",
-      (Identifier, Type, Type))
+      (DeclName, Type, Type))
 ERROR(override_with_stored_property,none,
       "cannot override with a stored property %0", (Identifier))
 WARNING(override_with_stored_property_warn,none,
@@ -2534,7 +2534,7 @@ NOTE(override_unnecessary_IUO_silence,none,
 
 ERROR(override_mutable_covariant_property,none,
       "cannot override mutable property %0 of type %1 with covariant type %2",
-      (Identifier, Type, Type))
+      (DeclName, Type, Type))
 ERROR(override_mutable_covariant_subscript,none,
       "cannot override mutable subscript of type %0 with covariant type %1",
       (Type, Type))
@@ -2779,7 +2779,7 @@ WARNING(differentiable_nondiff_type_implicit_noderivative_fixit,none,
       "stored property %0 has no derivative because %1 does not conform to "
       "'Differentiable'; add an explicit '@noDerivative' attribute"
       "%select{|, or conform %2 to 'AdditiveArithmetic'}3",
-      (/*propName*/ Identifier, /*propType*/ Type, /*nominalName*/ Identifier,
+      (/*propName*/ DeclName, /*propType*/ Type, /*nominalName*/ Identifier,
        /*nominalCanDeriveAdditiveArithmetic*/ bool))
 WARNING(differentiable_immutable_wrapper_implicit_noderivative_fixit,none,
       "synthesis of the 'Differentiable.move(along:)' requirement for %1 "
@@ -3504,12 +3504,12 @@ ERROR(implicit_use_of_self_in_closure,none,
 
 WARNING(recursive_accessor_reference,none,
         "attempting to %select{access|modify}1 %0 within its own "
-        "%select{getter|setter}1", (Identifier, bool))
+        "%select{getter|setter}1", (DeclName, bool))
 NOTE(recursive_accessor_reference_silence,none,
      "access 'self' explicitly to silence this warning", ())
 WARNING(store_in_willset,none,
         "attempting to store to property %0 within its own willSet, which is "
-        "about to be overwritten by the new value", (Identifier))
+        "about to be overwritten by the new value", (DeclName))
 
 ERROR(value_of_module_type,none,
       "expected module member name after module name", ())
@@ -3637,22 +3637,22 @@ NOTE(silence_debug_description_in_interpolation_segment_call,none,
 
 NOTE(noescape_parameter,none,
     "parameter %0 is implicitly non-escaping",
-     (Identifier))
+     (DeclName))
 NOTE(generic_parameters_always_escaping,none,
      "generic parameters are always considered '@escaping'", ())
 
 ERROR(passing_noescape_to_escaping,none,
       "passing non-escaping parameter %0 to function expecting an @escaping closure",
-      (Identifier))
+      (DeclName))
 ERROR(converting_noespace_param_to_generic_type,none,
       "converting non-escaping parameter %0 to generic parameter %1 may allow it to escape",
-      (Identifier, Type))
+      (DeclName, Type))
 ERROR(assigning_noescape_to_escaping,none,
       "assigning non-escaping parameter %0 to an @escaping closure",
-      (Identifier))
+      (DeclName))
 ERROR(general_noescape_to_escaping,none,
       "using non-escaping parameter %0 in a context expecting an @escaping closure",
-      (Identifier))
+      (DeclName))
 ERROR(converting_noescape_to_type,none,
       "converting non-escaping value to %0 may allow it to escape",
       (Type))
@@ -3781,7 +3781,7 @@ ERROR(fallthrough_from_last_case,none,
       "'fallthrough' without a following 'case' or 'default' block", ())
 ERROR(fallthrough_into_case_with_var_binding,none,
       "'fallthrough' from a case which doesn't bind variable %0",
-      (Identifier))
+      (DeclName))
 
 ERROR(unnecessary_cast_over_optionset,none,
       "unnecessary cast over raw value of %0", (Type))
@@ -3912,20 +3912,20 @@ ERROR(ambiguous_enum_pattern_type,none,
       "when matching value of type %1", (Type, Type))
 WARNING(type_inferred_to_undesirable_type,none,
         "%select{variable|constant}2 %0 inferred to have type %1, "
-        "which may be unexpected", (Identifier, Type, bool))
+        "which may be unexpected", (DeclName, Type, bool))
 WARNING(type_inferred_to_uninhabited_type,none,
         "%select{variable|constant}2 %0 inferred to have type %1, "
-        "which is an enum with no cases", (Identifier, Type, bool))
+        "which is an enum with no cases", (DeclName, Type, bool))
 WARNING(type_inferred_to_uninhabited_tuple_type,none,
         "%select{variable|constant}2 %0 inferred to have type %1, "
-        "which contains an enum with no cases", (Identifier, Type, bool))
+        "which contains an enum with no cases", (DeclName, Type, bool))
 NOTE(add_explicit_type_annotation_to_silence,none,
      "add an explicit type annotation to silence this warning", ())
 
 WARNING(unowned_assignment_immediate_deallocation,none,
         "instance will be immediately deallocated because "
         "%select{variable|property}2 %0 is %1",
-        (Identifier, ReferenceOwnership, /*Is Property*/unsigned))
+        (DeclName, ReferenceOwnership, /*Is Property*/unsigned))
 NOTE(unowned_assignment_requires_strong,none,
      "a strong reference is required to prevent the instance from being "
      "deallocated", ())
@@ -4868,37 +4868,37 @@ ERROR(specialize_attr_unsupported_kind_of_req,none,
 WARNING(pbd_never_used_stmtcond, none,
         "value %0 was defined but never used; consider replacing "
         "with boolean test",
-        (Identifier))
+        (DeclName))
 WARNING(unused_setter_parameter, none,
         "setter argument %0 was never used, but the property was accessed",
-        (Identifier))
+        (DeclName))
 NOTE(fixit_for_unused_setter_parameter, none,
-     "did you mean to use %0 instead of accessing the property's current value?", (Identifier))
+     "did you mean to use %0 instead of accessing the property's current value?", (DeclName))
 
 WARNING(pbd_never_used, none,
         "initialization of %select{variable|immutable value}1 %0 was never used"
         "; consider replacing with assignment to '_' or removing it",
-        (Identifier, unsigned))
+        (DeclName, unsigned))
 
 
 WARNING(capture_never_used, none,
         "capture %0 was never used",
-        (Identifier))
+        (DeclName))
 
 WARNING(variable_never_used, none,
         "%select{variable|immutable value}1 %0 was never used; "
         "consider replacing with '_' or removing it",
-        (Identifier, unsigned))
+        (DeclName, unsigned))
 WARNING(immutable_value_never_used_but_assigned, none,
         "immutable value %0 was never used; consider removing it",
-        (Identifier))
+        (DeclName))
 WARNING(variable_never_mutated, none,
         "variable %0 was never mutated; "
         "consider %select{removing 'var' to make it|changing to 'let'}1 constant",
-        (Identifier, bool))
+        (DeclName, bool))
 WARNING(variable_never_read, none,
         "variable %0 was written to, but never read",
-        (Identifier))
+        (DeclName))
 WARNING(observe_keypath_property_not_objc_dynamic, none,
         "passing reference to non-'@objc dynamic' property %0 to KVO method %1 "
         "may lead to unexpected behavior or runtime trap", (DeclName, DeclName))
@@ -5026,16 +5026,16 @@ ERROR(property_wrapper_computed, none,
 ERROR(property_with_wrapper_conflict_attribute,none,
       "property %0 with a wrapper cannot also be "
       "%select{lazy|@NSCopying|@NSManaged|weak|unowned|unmanaged}1",
-      (Identifier, int))
+      (DeclName, int))
 ERROR(property_wrapper_not_single_var, none,
       "property wrapper can only apply to a single variable", ())
 ERROR(property_with_wrapper_in_bad_context,none,
       "%select{|non-static |non-static }1property %0 declared inside "
       "%select{a protocol|an extension|an enum}1 cannot have a wrapper",
-      (Identifier, int))
+      (DeclName, int))
 ERROR(property_with_wrapper_overrides,none,
       "property %0 with attached wrapper cannot override another property",
-      (Identifier))
+      (DeclName))
 
 NOTE(property_wrapper_direct_init,none,
      "initialize the property wrapper type directly with "

@@ -5268,7 +5268,7 @@ static ParamDecl *createSetterAccessorArgument(SourceLoc nameLoc,
 
   auto result = new (P.Context)
       ParamDecl(SourceLoc(), SourceLoc(),
-                Identifier(), nameLoc, name, P.CurDeclContext);
+                Identifier(), DeclNameLoc(nameLoc), name, P.CurDeclContext);
 
   if (isNameImplicit)
     result->setImplicit();
@@ -5750,7 +5750,7 @@ Parser::parseDeclVarGetSet(Pattern *pattern, ParseDeclOptions Flags,
     storage = new (Context) VarDecl(StaticLoc.isValid(),
                                     VarDecl::Introducer::Var,
                                     /*is capture list*/ false,
-                                    VarLoc, Identifier(),
+                                    DeclNameLoc(VarLoc), Identifier(),
                                     CurDeclContext);
     storage->setImplicit(true);
     storage->setInvalid();

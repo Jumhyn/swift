@@ -156,7 +156,7 @@ deriveBodyMathOperator(AbstractFunctionDecl *funcDecl, MathOperator op) {
   llvm::SmallVector<Identifier, 2> memberNames;
   for (auto member : nominal->getStoredProperties()) {
     memberOpExprs.push_back(createMemberOpExpr(member));
-    memberNames.push_back(member->getName());
+    memberNames.push_back(member->getBaseName());
   }
   // Call memberwise initializer with member operator call expressions.
   auto *callExpr =
@@ -269,7 +269,7 @@ deriveBodyPropertyGetter(AbstractFunctionDecl *funcDecl, ProtocolDecl *proto,
   llvm::SmallVector<Identifier, 2> memberNames;
   for (auto member : nominal->getStoredProperties()) {
     memberPropExprs.push_back(createMemberPropertyExpr(member));
-    memberNames.push_back(member->getName());
+    memberNames.push_back(member->getBaseName());
   }
   // Call memberwise initializer with member property expressions.
   auto *callExpr =

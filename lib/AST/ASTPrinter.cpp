@@ -449,20 +449,22 @@ static bool escapeKeywordInContext(StringRef keyword, PrintNameContext context){
   llvm_unreachable("Unhandled PrintNameContext in switch.");
 }
 
-void ASTPrinter::printName(Identifier Name, PrintNameContext Context) {
+void ASTPrinter::printName(DeclName Name, PrintNameContext Context) {
   callPrintNamePre(Context);
 
-  if (Name.empty()) {
+  if (Name.getBaseName().empty()) {
     *this << "_";
     printNamePost(Context);
     return;
   }
 
-  bool shouldEscapeKeyword = escapeKeywordInContext(Name.str(), Context);
+  llvm::SmallVector<char, 16> scratch;
+  auto nameStr = Name.getString(scratch);
+  bool shouldEscapeKeyword = escapeKeywordInContext(nameStr, Context);
 
   if (shouldEscapeKeyword)
     *this << "`";
-  *this << Name.str();
+  *this << nameStr;
   if (shouldEscapeKeyword)
     *this << "`";
 
@@ -2695,7 +2697,7 @@ void PrintAST::visitVarDecl(VarDecl *decl) {
   printContextIfNeeded(decl);
   recordDeclLoc(decl,
     [&]{
-      Printer.printName(decl->getName(), getTypeMemberPrintNameContext(decl));
+      Printer.printName(decl->getBaseName(), getTypeMemberPrintNameContext(decl));
     });
 
   auto type = decl->getInterfaceType();
@@ -2739,7 +2741,8 @@ void PrintAST::printOneParameter(const ParamDecl *param,
     auto BodyName = param->getName();
     switch (Options.ArgAndParamPrinting) {
     case PrintOptions::ArgAndParamPrintingMode::EnumElement:
-      if (ArgName.empty() && BodyName.empty() && !param->hasDefaultExpr()) {
+      if (ArgName.empty() && BodyName.getBaseIdentifier().empty() &&
+          !param->hasDefaultExpr()) {
         // Don't print anything, in the style of a tuple element.
         return;
       }
@@ -2912,7 +2915,7 @@ void PrintAST::visitAccessorDecl(AccessorDecl *decl) {
         auto params = decl->getParameters();
         if (params->size() != 0 && !params->get(0)->isImplicit()) {
           auto Name = params->get(0)->getName();
-          if (!Name.empty()) {
+          if (!Name.getBaseIdentifier().empty()) {
             Printer << "(";
             Printer.printName(Name);
             Printer << ")";
@@ -4982,7 +4985,7 @@ void swift::printEnumElementsAsCases(
     for (auto i = PL->begin(); i != PL->end(); ++i) {
       auto *param = *i;
       if (param->hasName()) {
-        OS << tok::kw_let << " " << param->getName().str();
+        OS << tok::kw_let << " " << param->getName().getBaseIdentifier().str();
       } else {
         OS << "_";
       }

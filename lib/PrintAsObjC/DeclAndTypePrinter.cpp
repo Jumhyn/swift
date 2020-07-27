@@ -429,9 +429,9 @@ private:
     if (!param->hasName()) {
       os << "_";
     } else {
-      Identifier name = param->getName();
+      DeclName name = param->getName();
       os << name;
-      if (isClangKeyword(name))
+      if (name.isSimpleName() && isClangKeyword(name.getBaseIdentifier()))
         os << "_";
     }
   }
@@ -725,7 +725,7 @@ private:
                    Type objTy;
                    std::tie(objTy, kind) = getObjectTypeAndOptionality(
                        param, param->getInterfaceType());
-                   print(objTy, kind, param->getName(), IsFunctionParam);
+                   print(objTy, kind, param->getBaseName(), IsFunctionParam);
                  },
                  [&] { os << ", "; });
     } else {
@@ -2020,7 +2020,7 @@ private:
   /// visitPart().
 public:
   void print(Type ty, Optional<OptionalTypeKind> optionalKind,
-             Identifier name = Identifier(),
+             DeclName name = DeclName(),
              IsFunctionParam_t isFuncParam = IsNotFunctionParam) {
     PrettyStackTraceType trace(getASTContext(), "printing", ty);
 
@@ -2032,9 +2032,9 @@ public:
 
     PrintMultiPartType multiPart(*this);
     visitPart(ty, optionalKind);
-    if (!name.empty()) {
+    if (!name.getBaseIdentifier().empty()) {
       os << ' ' << name;
-      if (isClangKeyword(name)) {
+      if (name.isSimpleName() && isClangKeyword(name.getBaseIdentifier())) {
         os << '_';
       }
     }

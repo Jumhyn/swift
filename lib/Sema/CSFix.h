@@ -829,7 +829,7 @@ class UseWrappedValue final : public ConstraintFix {
         PropertyWrapper(propertyWrapper), Base(base), Wrapper(wrapper) {}
 
   bool usingStorageWrapper() const {
-    auto nameStr = PropertyWrapper->getName().str();
+    auto nameStr = PropertyWrapper->getName().getBaseIdentifier().str();
     return !nameStr.startswith("_");
   }
 

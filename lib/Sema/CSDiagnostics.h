@@ -979,7 +979,7 @@ public:
 
   VarDecl *getProperty() const { return Property; }
 
-  Identifier getPropertyName() const { return Property->getName(); }
+    Identifier getPropertyName() const { return Property->getName().getBaseIdentifier(); }
 
   bool usingStorageWrapper() const { return UsingStorageWrapper; }
 

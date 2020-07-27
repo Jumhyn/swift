@@ -2013,7 +2013,7 @@ ParserResult<Expr> Parser::parseExprStringLiteral() {
     // Make the variable which will contain our temporary value.
     auto InterpolationVar =
       new (Context) VarDecl(/*IsStatic=*/false, VarDecl::Introducer::Var,
-                            /*IsCaptureList=*/false, /*NameLoc=*/SourceLoc(),
+                            /*IsCaptureList=*/false, /*NameLoc=*/DeclNameLoc(),
                             Context.Id_dollarInterpolation, CurDeclContext);
     InterpolationVar->setImplicit(true);
     InterpolationVar->setHasNonPatternBindingInit(true);
@@ -2577,7 +2577,8 @@ parseClosureSignatureIfPresent(SourceRange &bracketRange,
                          : VarDecl::Introducer::Var);
       auto *VD = new (Context) VarDecl(/*isStatic*/false, introducer,
                                        /*isCaptureList*/true,
-                                       nameLoc, name, CurDeclContext);
+                                       DeclNameLoc(nameLoc), name,
+                                       CurDeclContext);
         
       // If we captured something under the name "self", remember that.
       if (name == Context.Id_self)
@@ -2636,12 +2637,14 @@ parseClosureSignatureIfPresent(SourceRange &bracketRange,
           break;
         }
 
-        Identifier name;
-        SourceLoc nameLoc;
+        DeclName name;
+        DeclNameLoc nameLoc;
         if (Tok.is(tok::identifier)) {
-          nameLoc = consumeIdentifier(&name);
+          name = parseDeclNameRef(nameLoc,
+                                  diag::expected_pattern,
+                                DeclNameFlag::AllowCompoundNames).getFullName();
         } else {
-          nameLoc = consumeToken(tok::kw__);
+          nameLoc = DeclNameLoc(consumeToken(tok::kw__));
         }
         auto var = new (Context)
             ParamDecl(SourceLoc(), SourceLoc(),
@@ -2971,7 +2974,7 @@ Expr *Parser::parseExprAnonClosureArg() {
     SourceLoc varLoc = leftBraceLoc;
     auto *var = new (Context)
         ParamDecl(SourceLoc(), SourceLoc(),
-                  Identifier(), varLoc, ident, closure);
+                  Identifier(), DeclNameLoc(varLoc), ident, closure);
     var->setSpecifier(ParamSpecifier::Default);
     var->setImplicit();
     decls.push_back(var);

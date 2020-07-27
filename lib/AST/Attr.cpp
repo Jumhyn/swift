@@ -485,7 +485,7 @@ static std::string getDifferentiationParametersClauseString(
       switch (parameterKind) {
       // Print differentiability parameters by name.
       case DifferentiationParameterKind::Differentiability:
-        printer << function->getParameters()->get(index)->getName().str();
+        printer << function->getParameters()->get(index)->getName().getBaseIdentifier().str();
         break;
       // Print linearity parameters by index.
       case DifferentiationParameterKind::Linearity:

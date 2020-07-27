@@ -628,14 +628,14 @@ public:
         new (Context) DeclRefExpr(ConcreteDeclRef(VD), DeclNameLoc(),
                                   true, // implicit
                                   AccessSemantics::Ordinary, Type()),
-        VD->getSourceRange(), VD->getName().str());
+        VD->getSourceRange(), VD->getBaseName().str());
   }
 
   Added<Stmt *> logDeclOrMemberRef(Added<Expr *> RE) {
     if (auto *DRE = dyn_cast<DeclRefExpr>(*RE)) {
       VarDecl *VD = cast<VarDecl>(DRE->getDecl());
 
-      if (isa<ConstructorDecl>(TypeCheckDC) && VD->getBaseName() == "self") {
+      if (isa<ConstructorDecl>(TypeCheckDC) && VD->getName().getBaseName() == "self") {
         // Don't log "self" in a constructor
         return nullptr;
       }
@@ -643,7 +643,7 @@ public:
       return buildLoggerCall(
           new (Context) DeclRefExpr(ConcreteDeclRef(VD), DeclNameLoc(),
                                     /*implicit=*/true),
-          DRE->getSourceRange(), VD->getName().str());
+          DRE->getSourceRange(), VD->getBaseName().str());
     } else if (auto *MRE = dyn_cast<MemberRefExpr>(*RE)) {
       Expr *B = MRE->getBase();
       ConcreteDeclRef M = MRE->getMember();

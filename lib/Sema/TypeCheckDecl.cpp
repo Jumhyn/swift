@@ -2079,7 +2079,7 @@ ParamSpecifierRequest::evaluate(Evaluator &evaluator,
     auto &ctx = param->getASTContext();
     ctx.Diags.diagnose(param->getStructuralDefaultExpr()->getLoc(),
                        swift::diag::cannot_provide_default_value_inout,
-                       param->getName());
+                       param->getBaseName());
     return ParamSpecifier::Default;
   }
 
@@ -2092,6 +2092,23 @@ ParamSpecifierRequest::evaluate(Evaluator &evaluator,
   }
 
   return ParamSpecifier::Default;
+}
+
+static Type applyFunctionArgumentLabels(DeclName name, Type type) {
+    assert(type->is<FunctionType>());
+    if (auto *fnTy = type->getAs<FunctionType>()) {
+      assert(fnTy->getParams().size() == name.getArgumentNames().size());
+      SmallVector<AnyFunctionType::Param, 4> labeledParams;
+      auto params = fnTy->getParams();
+      auto labels = name.getArgumentNames();
+      for (size_t i = 0; i < params.size(); ++i) {
+        auto param = params[i];
+        labeledParams.push_back(param.withLabel(labels[i]));
+      }
+      return FunctionType::get(labeledParams, fnTy->getResult(),
+                               AnyFunctionType::ExtInfo());
+    }
+    return type;
 }
 
 static Type validateParameterType(ParamDecl *decl) {
@@ -2150,6 +2167,10 @@ static Type validateParameterType(ParamDecl *decl) {
 
     return Ty;
   }
+
+  if (decl->getName().isCompoundName())
+    return applyFunctionArgumentLabels(decl->getName(), Ty);
+
   return Ty;
 }
 
@@ -2255,6 +2276,10 @@ InterfaceTypeRequest::evaluate(Evaluator &eval, ValueDecl *D) const {
       if (auto *attr = VD->getAttrs().getAttribute<ReferenceOwnershipAttr>())
         interfaceType =
             TypeChecker::checkReferenceOwnershipAttr(VD, interfaceType, attr);
+    }
+
+    if (VD->getName().isCompoundName()) {
+      interfaceType = applyFunctionArgumentLabels(VD->getName(), interfaceType);
     }
 
     return interfaceType;

@@ -1598,7 +1598,7 @@ bool AssignmentFailure::diagnoseAsError() {
     // problematic decl, we can produce a nice tailored diagnostic.
     if (auto *VD = dyn_cast<VarDecl>(choice->getDecl())) {
       std::string message = "'";
-      message += VD->getName().str().str();
+      message += VD->getName().getBaseIdentifier().str().str();
       message += "'";
 
       auto type = getType(immutableExpr);
@@ -2783,7 +2783,7 @@ bool ContextualFailure::tryProtocolConformanceFixIt(
     conformanceDiag.fixItInsert(lastInheritedEndLoc, ", " + protoString);
   } else {
     auto nameEndLoc = Lexer::getLocForEndOfToken(getASTContext().SourceMgr,
-                                                 nominal->getNameLoc());
+                                        nominal->getNameLoc().getBaseNameLoc());
     conformanceDiag.fixItInsert(nameEndLoc, ": " + protoString);
   }
 
@@ -5468,7 +5468,7 @@ void InOutConversionFailure::fixItChangeArgumentType() const {
     startLoc = typeRange.Start;
     endLoc = typeRange.End;
   } else if (isSimpleTypelessPattern(VD->getParentPattern())) {
-    endLoc = VD->getNameLoc();
+    endLoc = VD->getNameLoc().getBaseNameLoc();
     scratch += ": ";
   }
 

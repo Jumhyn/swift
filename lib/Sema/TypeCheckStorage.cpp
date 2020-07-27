@@ -2341,7 +2341,7 @@ LazyStoragePropertyRequest::evaluate(Evaluator &evaluator,
   // Create the storage property as an optional of VD's type.
   SmallString<64> NameBuf;
   NameBuf += "$__lazy_storage_$_";
-  NameBuf += VD->getName().str();
+  NameBuf += VD->getBaseName().str();
   auto StorageName = Context.getIdentifier(NameBuf);
   auto StorageInterfaceTy = OptionalType::get(VD->getInterfaceType());
   auto StorageTy = OptionalType::get(VD->getType());
@@ -2415,7 +2415,7 @@ static VarDecl *synthesizePropertyWrapperStorageWrapperProperty(
   // Compute the name of the storage type.
   SmallString<64> nameBuf;
   nameBuf = "$";
-  nameBuf += var->getName().str();
+  nameBuf += var->getBaseName().str();
   Identifier name = ctx.getIdentifier(nameBuf);
 
   // Determine the type of the property.
@@ -2672,7 +2672,7 @@ PropertyWrapperBackingPropertyInfoRequest::evaluate(Evaluator &evaluator,
   ASTContext &ctx = var->getASTContext();
   SmallString<64> nameBuf;
   nameBuf = "_";
-  nameBuf += var->getName().str();
+  nameBuf += var->getBaseName().str();
   Identifier name = ctx.getIdentifier(nameBuf);
 
   // Determine the type of the storage.

@@ -1395,10 +1395,11 @@ createValueConstructor(ClangImporter::Implementation &Impl,
           generateParamName = false;
     }
 
-    Identifier argName = generateParamName ? var->getName() : Identifier();
+    Identifier argName = generateParamName
+        ? var->getName().getBaseIdentifier() : Identifier();
     auto param = new (context)
         ParamDecl(SourceLoc(), SourceLoc(), argName,
-                  SourceLoc(), var->getName(), structDecl);
+                  DeclNameLoc(), var->getName(), structDecl);
     param->setSpecifier(ParamSpecifier::Default);
     param->setInterfaceType(var->getInterfaceType());
     Impl.recordImplicitUnwrapForDecl(param, var->isImplicitlyUnwrappedOptional());
@@ -1718,7 +1719,8 @@ buildSubscriptSetterDecl(ClangImporter::Implementation &Impl,
 
   auto paramVarDecl =
       new (C) ParamDecl(SourceLoc(), SourceLoc(),
-                        Identifier(), loc, valueIndex->get(0)->getName(), dc);
+                        Identifier(), DeclNameLoc(loc),
+                        valueIndex->get(0)->getName(), dc);
   paramVarDecl->setSpecifier(ParamSpecifier::Default);
   paramVarDecl->setInterfaceType(elementInterfaceTy);
 

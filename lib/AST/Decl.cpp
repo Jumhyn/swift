@@ -928,7 +928,7 @@ GenericParamList::clone(DeclContext *dc) const {
   SmallVector<GenericTypeParamDecl *, 2> params;
   for (auto param : getParams()) {
     auto *newParam = new (ctx) GenericTypeParamDecl(
-      dc, param->getName(), param->getNameLoc(),
+      dc, param->getName(), param->getStartLoc(),
       GenericTypeParamDecl::InvalidDepth,
       param->getIndex());
     params.push_back(newParam);
@@ -1557,8 +1557,9 @@ ParamDecl *PatternBindingInitializer::getImplicitSelfDecl() const {
       ASTContext &C = DC->getASTContext();
       auto *mutableThis = const_cast<PatternBindingInitializer *>(this);
       auto *LazySelfParam = new (C) ParamDecl(SourceLoc(), SourceLoc(),
-                                    Identifier(), singleVar->getLoc(),
-                                    C.Id_self, mutableThis);
+                                              Identifier(),
+                                              DeclNameLoc(singleVar->getLoc()),
+                                              C.Id_self, mutableThis);
       LazySelfParam->setImplicit();
       LazySelfParam->setSpecifier(specifier);
       LazySelfParam->setInterfaceType(DC->getSelfInterfaceType());
@@ -3917,7 +3918,7 @@ SourceRange TypeAliasDecl::getSourceRange() const {
     return { TypeAliasLoc, UnderlyingTy.getSourceRange().End };
   if (TypeEndLoc.isValid())
     return { TypeAliasLoc, TypeEndLoc };
-  return { TypeAliasLoc, getNameLoc() };
+  return { TypeAliasLoc, getStartLoc() };
 }
 
 Type TypeAliasDecl::getUnderlyingType() const {
@@ -4004,12 +4005,12 @@ GenericTypeParamDecl::GenericTypeParamDecl(DeclContext *dc, Identifier name,
 }
 
 SourceRange GenericTypeParamDecl::getSourceRange() const {
-  SourceLoc endLoc = getNameLoc();
+  SourceLoc endLoc = getStartLoc();
 
   if (!getInherited().empty()) {
     endLoc = getInherited().back().getSourceRange().End;
   }
-  return SourceRange(getNameLoc(), endLoc);
+  return SourceRange(getStartLoc(), endLoc);
 }
 
 AssociatedTypeDecl::AssociatedTypeDecl(DeclContext *dc, SourceLoc keywordLoc,
@@ -4048,7 +4049,7 @@ SourceRange AssociatedTypeDecl::getSourceRange() const {
   } else if (!getInherited().empty()) {
     endLoc = getInherited().back().getSourceRange().End;
   } else {
-    endLoc = getNameLoc();
+    endLoc = getStartLoc();
   }
   return SourceRange(KeywordLoc, endLoc);
 }
@@ -5484,7 +5485,7 @@ Type AbstractStorageDecl::getValueInterfaceType() const {
 }
 
 VarDecl::VarDecl(DeclKind kind, bool isStatic, VarDecl::Introducer introducer,
-                 bool isCaptureList, SourceLoc nameLoc, Identifier name,
+                 bool isCaptureList, DeclNameLoc nameLoc, DeclName name,
                  DeclContext *dc, StorageIsMutable_t supportsMutation)
   : AbstractStorageDecl(kind, isStatic, dc, name, nameLoc, supportsMutation)
 {
@@ -5600,7 +5601,7 @@ bool VarDecl::isLazilyInitializedGlobal() const {
 SourceRange VarDecl::getSourceRange() const {
   if (auto Param = dyn_cast<ParamDecl>(this))
     return Param->getSourceRange();
-  return getNameLoc();
+  return getNameLoc().getSourceRange();
 }
 
 SourceRange VarDecl::getTypeSourceRangeForDiagnostics() const {
@@ -5913,10 +5914,10 @@ void ParamDecl::setSpecifier(Specifier specifier) {
 
 bool ParamDecl::isAnonClosureParam() const {
   auto name = getName();
-  if (name.empty())
+  if (name.getBaseIdentifier().empty())
     return false;
 
-  auto nameStr = name.str();
+  auto nameStr = name.getBaseIdentifier().str();
   if (nameStr.empty())
     return false;
 
@@ -6098,7 +6099,7 @@ Identifier VarDecl::getObjCPropertyName() const {
       return name->getSelectorPieces()[0];
   }
 
-  return getName();
+  return getName().getBaseIdentifier();
 }
 
 ObjCSelector VarDecl::getDefaultObjCGetterSelector(ASTContext &ctx,
@@ -6176,7 +6177,7 @@ void VarDecl::emitLetToVarNoteIfSimple(DeclContext *UseDC) const {
 
 ParamDecl::ParamDecl(SourceLoc specifierLoc,
                      SourceLoc argumentNameLoc, Identifier argumentName,
-                     SourceLoc parameterNameLoc, Identifier parameterName,
+                     DeclNameLoc parameterNameLoc, DeclName parameterName,
                      DeclContext *dc)
     : VarDecl(DeclKind::Param,
               /*IsStatic*/ false,
@@ -6194,7 +6195,7 @@ ParamDecl::ParamDecl(SourceLoc specifierLoc,
 ParamDecl *ParamDecl::cloneWithoutType(const ASTContext &Ctx, ParamDecl *PD) {
   auto *Clone = new (Ctx) ParamDecl(
       SourceLoc(), SourceLoc(), PD->getArgumentName(),
-      SourceLoc(), PD->getParameterName(), PD->getDeclContext());
+      DeclNameLoc(), PD->getParameterName(), PD->getDeclContext());
   Clone->DefaultValueAndFlags.setPointerAndInt(
       nullptr, PD->DefaultValueAndFlags.getInt());
   Clone->Bits.ParamDecl.defaultArgumentKind =
@@ -6236,7 +6237,7 @@ Type DeclContext::getSelfInterfaceType() const {
 /// Return the full source range of this parameter.
 SourceRange ParamDecl::getSourceRange() const {
   SourceLoc APINameLoc = getArgumentNameLoc();
-  SourceLoc nameLoc = getNameLoc();
+  SourceLoc nameLoc = getParameterNameLoc().getBaseNameLoc();
 
   SourceLoc startLoc;
   if (APINameLoc.isValid())
@@ -6882,9 +6883,9 @@ SourceRange AbstractFunctionDecl::getSignatureSourceRange() const {
 
   auto endLoc = paramList->getSourceRange().End;
   if (endLoc.isValid())
-    return SourceRange(getNameLoc(), endLoc);
+    return SourceRange(getNameLoc().getBaseNameLoc(), endLoc);
 
-  return getNameLoc();
+  return getNameLoc().getBaseNameLoc();
 }
 
 ObjCSelector
@@ -7062,7 +7063,7 @@ ParamDecl *AbstractFunctionDecl::getImplicitSelfDecl(bool createIfNeeded) {
   // Create and save our 'self' parameter.
   auto &ctx = getASTContext();
   *selfDecl = new (ctx) ParamDecl(SourceLoc(), SourceLoc(), Identifier(),
-                                  getLoc(), ctx.Id_self, this);
+                                  DeclNameLoc(getLoc()), ctx.Id_self, this);
   (*selfDecl)->setImplicit();
 
   return *selfDecl;
@@ -7452,9 +7453,9 @@ ConstructorDecl::ConstructorDecl(DeclName Name, SourceLoc ConstructorLoc,
                                  ParameterList *BodyParams,
                                  GenericParamList *GenericParams,
                                  DeclContext *Parent)
-  : AbstractFunctionDecl(DeclKind::Constructor, Parent, Name, ConstructorLoc,
-                         Throws, ThrowsLoc, /*HasImplicitSelfDecl=*/true,
-                         GenericParams),
+  : AbstractFunctionDecl(DeclKind::Constructor, Parent, Name,
+                         DeclNameLoc(ConstructorLoc), Throws, ThrowsLoc,
+                         /*HasImplicitSelfDecl=*/true, GenericParams),
     FailabilityLoc(FailabilityLoc),
     SelfDecl(nullptr)
 {
@@ -7483,7 +7484,8 @@ bool ConstructorDecl::isObjCZeroParameterWithLongSelector() const {
 
 DestructorDecl::DestructorDecl(SourceLoc DestructorLoc, DeclContext *Parent)
   : AbstractFunctionDecl(DeclKind::Destructor, Parent,
-                         DeclBaseName::createDestructor(), DestructorLoc,
+                         DeclBaseName::createDestructor(),
+                         DeclNameLoc(DestructorLoc),
                          /*Throws=*/false,
                          /*ThrowsLoc=*/SourceLoc(),
                          /*HasImplicitSelfDecl=*/true,
@@ -7542,7 +7544,7 @@ EnumElementDecl::EnumElementDecl(SourceLoc IdentifierLoc, DeclName Name,
                                  LiteralExpr *RawValueExpr,
                                  DeclContext *DC)
   : DeclContext(DeclContextKind::EnumElementDecl, DC),
-    ValueDecl(DeclKind::EnumElement, DC, Name, IdentifierLoc),
+    ValueDecl(DeclKind::EnumElement, DC, Name, DeclNameLoc(IdentifierLoc)),
     EqualsLoc(EqualsLoc),
     RawValueExpr(RawValueExpr) {
   setParameterList(Params);
@@ -7553,7 +7555,7 @@ SourceRange EnumElementDecl::getSourceRange() const {
     return {getStartLoc(), RawValueExpr->getEndLoc()};
   if (auto *PL = getParameterList())
     return {getStartLoc(), PL->getSourceRange().End};
-  return {getStartLoc(), getNameLoc()};
+  return {getStartLoc(), getStartLoc()};
 }
 
 Type EnumElementDecl::getArgumentInterfaceType() const {

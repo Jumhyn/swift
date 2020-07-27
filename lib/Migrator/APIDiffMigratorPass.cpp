@@ -64,8 +64,8 @@ public:
         SourceLoc End = Init->getFailabilityLoc();
         bool Optional = End.isValid();
         if (!Optional)
-          End = Init->getNameLoc();
-        return {SourceRange(Init->getNameLoc(), End), Optional,
+          End = Init->getNameLoc().getEndLoc();
+        return {SourceRange(Init->getNameLoc().getStartLoc(), End), Optional,
           /*suffixable=*/true, /*suffixed=*/false};
       }
       return {SourceRange(), false, false, false};
@@ -1188,7 +1188,7 @@ struct APIDiffMigratorPass : public ASTMigratorPass, public SourceEntityWalker {
         // If the argument name is not specified, add the argument name before
         // the parameter name.
         if (ArgLoc.isInvalid())
-          Editor.insertBefore(PD->getNameLoc(),
+          Editor.insertBefore(PD->getNameLoc().getBaseNameLoc(),
                               (llvm::Twine(NewArg) + " ").str());
         else {
           // Otherwise, replace the argument name directly.
@@ -1258,7 +1258,7 @@ struct APIDiffMigratorPass : public ASTMigratorPass, public SourceEntityWalker {
     case NodeAnnotation::GetterToProperty: {
       auto FuncLoc = FD->getFuncLoc();
       auto ReturnTyLoc = FD->getBodyResultTypeLoc().getSourceRange().Start;
-      auto NameLoc = FD->getNameLoc();
+      auto NameLoc = FD->getNameLoc().getBaseNameLoc();
       if (FuncLoc.isInvalid() || ReturnTyLoc.isInvalid() || NameLoc.isInvalid())
         break;
 
@@ -1304,7 +1304,8 @@ struct APIDiffMigratorPass : public ASTMigratorPass, public SourceEntityWalker {
       return;
 
     // Get the internal name of the changed paramter.
-    auto VariableName = Params[Idx]->getParameterName().str();
+    llvm::SmallVector<char, 16> scratch;
+    auto VariableName = Params[Idx]->getParameterName().getString(scratch);
 
     // Insert the helper function to convert the type back to raw types.
     auto &Info = insertHelperFunction(DiffItem->DiffKind, DiffItem->LeftComment,
@@ -1439,7 +1440,8 @@ struct APIDiffMigratorPass : public ASTMigratorPass, public SourceEntityWalker {
           // If the overriden property has been renamed, we should rename
           // this property decl as well.
           if (CD->isRename() && VD->getNameLoc().isValid()) {
-            Editor.replaceToken(VD->getNameLoc(), CD->getNewName());
+            Editor.replaceToken(VD->getNameLoc().getBaseNameLoc(),
+                                CD->getNewName());
           }
         }
       }

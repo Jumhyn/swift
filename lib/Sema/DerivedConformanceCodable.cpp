@@ -119,9 +119,9 @@ varConformsToCodable(DeclContext *DC, VarDecl *varDecl, ProtocolDecl *proto) {
 /// Retrieve the variable name for the purposes of encoding/decoding.
 static Identifier getVarNameForCoding(VarDecl *var) {
   if (auto originalVar = var->getOriginalWrappedProperty())
-    return originalVar->getName();
+    return originalVar->getBaseName();
 
-  return var->getName();
+  return var->getBaseName();
 }
 
 /// Validates the given CodingKeys enum decl by ensuring its cases are a 1-to-1

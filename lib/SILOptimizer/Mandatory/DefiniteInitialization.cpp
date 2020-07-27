@@ -1434,7 +1434,7 @@ void LifetimeChecker::diagnoseRefElementAddr(RefElementAddrInst *REI) {
                : BeforeSelfInit);
   diagnose(Module, REI->getLoc(),
            diag::self_use_before_fully_init,
-           REI->getField()->getName(), true, Kind);
+           REI->getField()->getName().getBaseName(), true, Kind);
 }
 
 template <typename T>

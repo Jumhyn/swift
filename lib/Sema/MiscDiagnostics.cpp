@@ -451,15 +451,15 @@ static void diagSyntacticUseRestrictions(const Expr *E, const DeclContext *DC,
 
       // Emit main warning
       Ctx.Diags.diagnose(arg->getLoc(), diag::default_magic_identifier_mismatch,
-                         callerParam->getName(), callerDefaultArgString,
-                         calleeParam->getName(), calleeDefaultArgString);
+                         callerParam->getBaseName(), callerDefaultArgString,
+                         calleeParam->getBaseName(), calleeDefaultArgString);
 
       // Add "change caller default arg" fixit
       SourceLoc callerDefaultArgLoc =
           callerParam->getStructuralDefaultExpr()->getLoc();
       Ctx.Diags.diagnose(callerDefaultArgLoc,
                          diag::change_caller_default_to_match_callee,
-                         callerParam->getName(), calleeDefaultArgString)
+                         callerParam->getBaseName(), calleeDefaultArgString)
         .fixItReplace(callerDefaultArgLoc, calleeDefaultArgString);
 
       // Add "silence with parens" fixit
@@ -2357,7 +2357,7 @@ public:
     }
     
     // If the variable is already unnamed, ignore it.
-    if (!VD->hasName() || VD->getName().str() == "_")
+    if (!VD->hasName() || VD->getBaseName().str() == "_")
       return false;
     
     return true;
@@ -2710,7 +2710,8 @@ VarDeclUsageChecker::~VarDeclUsageChecker() {
                            var->getName());
             Diags.diagnose(DRE->getLoc(), diag::fixit_for_unused_setter_parameter,
                            var->getName())
-              .fixItReplace(DRE->getSourceRange(), var->getName().str());
+            // TODO: Need to replace with the full name...
+              .fixItReplace(DRE->getSourceRange(), var->getBaseName().str());
           }
         }
       }
@@ -2850,7 +2851,7 @@ VarDeclUsageChecker::~VarDeclUsageChecker() {
         // Just rewrite the one variable with a _.
         Diags.diagnose(var->getLoc(), diag::variable_never_used,
                        var->getName(), varKind)
-          .fixItReplace(var->getLoc(), "_");
+          .fixItReplace(var->getNameLoc().getSourceRange(), "_");
       }
       continue;
     }
@@ -4660,9 +4661,10 @@ Optional<DeclName> TypeChecker::omitNeedlessWords(AbstractFunctionDecl *afd) {
 
   // Figure out the first parameter name.
   StringRef firstParamName;
+  llvm::SmallVector<char, 16> paramScratch;
   auto params = afd->getParameters();
-  if (params->size() != 0 && !params->get(0)->getName().empty())
-    firstParamName = params->get(0)->getName().str();
+  if (params->size() != 0 && !params->get(0)->getBaseName().empty())
+    firstParamName = params->get(0)->getName().getString(paramScratch);
 
   StringScratchSpace scratch;
   if (!swift::omitNeedlessWords(baseNameStr, argNameStrs, firstParamName,
@@ -4703,10 +4705,10 @@ Optional<Identifier> TypeChecker::omitNeedlessWords(VarDecl *var) {
   if (var->isInvalid())
     return None;
 
-  if (var->getName().empty())
+  if (var->getBaseName().empty())
     return None;
 
-  auto name = var->getName().str();
+  auto name = var->getBaseName().str();
 
   // Dig out the context type.
   Type contextType = var->getDeclContext()->getDeclaredInterfaceType();

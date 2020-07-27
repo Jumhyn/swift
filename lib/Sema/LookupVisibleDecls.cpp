@@ -378,7 +378,7 @@ static void doDynamicLookup(VisibleDeclConsumer &Consumer,
       case DeclKind::Var: {
         auto *VD = cast<VarDecl>(D);
         auto Signature =
-            std::make_pair(VD->getName(),
+            std::make_pair(VD->getBaseName(),
                            VD->getInterfaceType()->getCanonicalType());
         if (!PropertiesReported.insert(Signature).second)
           return;

@@ -123,7 +123,7 @@ static std::vector<CharSourceRange> getLabelRanges(const ParameterList* List,
       continue;
 
     SourceLoc NameLoc = Param->getArgumentNameLoc();
-    SourceLoc ParamLoc = Param->getNameLoc();
+    SourceLoc ParamLoc = Param->getParameterNameLoc().getBaseNameLoc();
     size_t NameLength;
     if (NameLoc.isValid()) {
       LabelRanges.push_back(Lexer::getCharSourceRangeFromSourceRange(
@@ -152,7 +152,7 @@ static std::vector<CharSourceRange> getEnumParamListInfo(SourceManager &SM,
     SourceLoc LabelEnd(LabelStart);
     
     if (Param->getNameLoc().isValid()) {
-      LabelStart = Param->getNameLoc();
+      LabelStart = Param->getNameLoc().getBaseNameLoc();
     }
     LabelRanges.push_back(CharSourceRange(SM, LabelStart, LabelEnd));
   }
@@ -233,7 +233,7 @@ bool NameMatcher::walkToDeclPre(Decl *D) {
     return false;
   } else if (AbstractFunctionDecl *AFD = dyn_cast<AbstractFunctionDecl>(D)) {
     std::vector<CharSourceRange> LabelRanges;
-    if (AFD->getNameLoc() == nextLoc()) {
+    if (AFD->getNameLoc().getBaseNameLoc() == nextLoc()) {
       auto ParamList = AFD->getParameters();
       LabelRanges = getLabelRanges(ParamList, getSourceMgr());
     }

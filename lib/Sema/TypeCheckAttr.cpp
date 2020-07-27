@@ -1366,7 +1366,8 @@ visitDynamicMemberLookupAttr(DynamicMemberLookupAttr *attr) {
         index->getArgumentNameLoc().isInvalid()) {
       diagnose(SD, diag::invalid_dynamic_member_subscript)
           .highlight(index->getSourceRange())
-          .fixItInsert(index->getParameterNameLoc(), "dynamicMember ");
+          .fixItInsert(index->getParameterNameLoc().getBaseNameLoc(),
+                       "dynamicMember ");
     }
   }
 

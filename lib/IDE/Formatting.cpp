@@ -499,7 +499,8 @@ private:
       if (!handleBraces(ED->getBraces(), ContextLoc))
         return Stop;
     } else if (auto *VD = dyn_cast<VarDecl>(D)) {
-      if (!handleBraces(VD->getBracesRange(), VD->getNameLoc()))
+      if (!handleBraces(VD->getBracesRange(),
+                        VD->getNameLoc().getBaseNameLoc()))
         return Stop;
     } else if (isa<AbstractFunctionDecl>(D) || isa<SubscriptDecl>(D)) {
       if (isa<SubscriptDecl>(D)) {

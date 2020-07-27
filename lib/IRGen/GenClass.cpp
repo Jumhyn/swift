@@ -490,7 +490,7 @@ static OwnedAddress emitAddressAtOffset(IRGenFunction &IGF, SILType baseType,
   auto &fieldTI = IGF.getTypeInfo(baseType.getFieldType(
       field, IGF.getSILModule(), IGF.IGM.getMaximalTypeExpansionContext()));
   auto addr = IGF.emitByteOffsetGEP(base, offset, fieldTI,
-                              base->getName() + "." + field->getName().str());
+                              base->getName() + "." + field->getBaseName().str());
   return OwnedAddress(addr, base);
 }
 
@@ -1797,7 +1797,7 @@ namespace {
       fields.add(offsetPtr);
 
       // TODO: clang puts this in __TEXT,__objc_methname,cstring_literals
-      fields.add(IGM.getAddrOfGlobalString(ivar->getName().str()));
+      fields.add(IGM.getAddrOfGlobalString(ivar->getBaseName().str()));
 
       // TODO: clang puts this in __TEXT,__objc_methtype,cstring_literals
       fields.add(IGM.getAddrOfGlobalString(""));

@@ -2504,8 +2504,8 @@ public:
         VD->shouldHideFromEditor())
       return;
 
-    const Identifier Name = VD->getName();
-    assert(!Name.empty() && "name should not be empty");
+    const DeclName Name = VD->getName();
+    assert(!Name.getBaseIdentifier().empty() && "name should not be empty");
 
     CommandWordsPairs Pairs;
     CodeCompletionResultBuilder Builder(
@@ -2513,7 +2513,7 @@ public:
         getSemanticContext(VD, Reason, dynamicLookupInfo), expectedTypeContext);
     Builder.setAssociatedDecl(VD);
     addLeadingDot(Builder);
-    addValueBaseName(Builder, Name);
+    addValueBaseName(Builder, Name.getBaseName());
     setClangDeclKeywords(VD, Pairs, Builder);
 
     // "not recommended" in its own getter.
@@ -2612,7 +2612,7 @@ public:
       auto &typeParam = typeParams[i];
 
       Identifier argName;
-      Identifier bodyName;
+      DeclName bodyName;
       bool isIUO = false;
 
       if (!declParams.empty()) {
@@ -2640,9 +2640,9 @@ public:
       if (auto typeContext = CurrDeclContext->getInnermostTypeContext())
         contextTy = typeContext->getDeclaredTypeInContext();
 
-      Builder.addCallParameter(argName, bodyName, paramTy, contextTy,
-                               isVariadic, isInOut, isIUO, isAutoclosure,
-                               /*useUnderscoreLabel=*/false,
+      Builder.addCallParameter(argName, bodyName.getBaseIdentifier(), paramTy,
+                               contextTy, isVariadic, isInOut, isIUO,
+                               isAutoclosure, /*useUnderscoreLabel=*/false,
                                /*isLabeledTrailingClosure=*/false);
 
       modifiedBuilder = true;

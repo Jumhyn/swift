@@ -361,7 +361,7 @@ PropertyWrapperTypeInfoRequest::evaluate(
     if (result.projectedValueVar &&
         result.projectedValueVar->getLoc().isValid()) {
       result.projectedValueVar->diagnose(diag::property_wrapper_wrapperValue)
-        .fixItReplace(result.projectedValueVar->getNameLoc(),
+      .fixItReplace(result.projectedValueVar->getNameLoc().getBaseNameLoc(),
                       "projectedValue");
     }
   }

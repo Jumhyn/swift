@@ -1383,7 +1383,9 @@ public:
     if (!Bits.Data.HasValue)
       return None;
     if (VD)
-      return SILDebugVariable(VD->getName().empty() ? "" : VD->getName().str(),
+      return SILDebugVariable(VD->getBaseName().empty()
+                                ? ""
+                                : VD->getBaseName().str(),
                               VD->isLet(), getArgNo());
     else
       return SILDebugVariable(getName(buf), isLet(), getArgNo());

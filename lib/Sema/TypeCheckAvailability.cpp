@@ -2081,7 +2081,8 @@ void swift::diagnoseUnavailableOverride(ValueDecl *override,
     }
 
     if (!parsedName.IsFunctionName) {
-      diag.fixItReplace(override->getNameLoc(), parsedName.BaseName);
+      diag.fixItReplace(override->getNameLoc().getBaseNameLoc(),
+                        parsedName.BaseName);
       return;
     }
 
