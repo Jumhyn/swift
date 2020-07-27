@@ -75,9 +75,8 @@ deriveBodyEquatable_enum_uninhabited_eq(AbstractFunctionDecl *eqDecl, void *) {
                                   AccessSemantics::Ordinary,
                                   bParam->getType());
   TupleTypeElt abTupleElts[2] = { aParam->getType(), bParam->getType() };
-  auto abExpr = TupleExpr::create(C, SourceLoc(), {aRef, bRef},
-                                  SmallVector<DeclName, 2>(), {}, SourceLoc(),
-                                  /*HasTrailingClosure*/ false,
+  auto abExpr = TupleExpr::create(C, SourceLoc(), {aRef, bRef}, {}, {},
+                                  SourceLoc(), /*HasTrailingClosure*/ false,
                                   /*implicit*/ true,
                                   TupleType::get(abTupleElts, C));
   auto switchStmt = SwitchStmt::create(LabeledStmtInfo(), SourceLoc(), abExpr,
@@ -135,8 +134,7 @@ deriveBodyEquatable_enum_noAssociatedValues_eq(AbstractFunctionDecl *eqDecl,
 
   TupleTypeElt abTupleElts[2] = { aIndex->getType(), bIndex->getType() };
   TupleExpr *abTuple = TupleExpr::create(C, SourceLoc(), { aIndex, bIndex },
-                                         SmallVector<DeclName, 2>(), { },
-                                         SourceLoc(),
+                                         { }, { }, SourceLoc(),
                                          /*HasTrailingClosure*/ false,
                                          /*Implicit*/ true,
                                          TupleType::get(abTupleElts, C));
@@ -273,9 +271,8 @@ deriveBodyEquatable_enum_hasAssociatedValues_eq(AbstractFunctionDecl *eqDecl,
   // switch (a, b) { <case statements> }
   auto aRef = new (C) DeclRefExpr(aParam, DeclNameLoc(), /*implicit*/true);
   auto bRef = new (C) DeclRefExpr(bParam, DeclNameLoc(), /*implicit*/true);
-  auto abExpr = TupleExpr::create(C, SourceLoc(), { aRef, bRef },
-                                  SmallVector<DeclName, 2>(), {}, SourceLoc(),
-  /*HasTrailingClosure*/ false,
+  auto abExpr = TupleExpr::create(C, SourceLoc(), { aRef, bRef }, {}, {},
+                                  SourceLoc(), /*HasTrailingClosure*/ false,
                                   /*implicit*/ true);
   auto switchStmt = SwitchStmt::create(LabeledStmtInfo(), SourceLoc(), abExpr,
                                        SourceLoc(), cases, SourceLoc(), C);
@@ -384,7 +381,7 @@ deriveEquatable_eq(
 
   auto getParamDecl = [&](StringRef s) -> ParamDecl * {
     auto *param = new (C) ParamDecl(SourceLoc(),
-                                    SourceLoc(), Identifier(), SourceLoc(),
+                                    SourceLoc(), Identifier(), DeclNameLoc(),
                                     C.getIdentifier(s), parentDC);
     param->setSpecifier(ParamSpecifier::Default);
     param->setInterfaceType(selfIfaceTy);
@@ -539,8 +536,9 @@ deriveHashable_hashInto(
 
   // Params: self (implicit), hasher
   auto *hasherParamDecl = new (C) ParamDecl(SourceLoc(),
-                                            SourceLoc(), C.Id_into, SourceLoc(),
-                                            C.Id_hasher, parentDC);
+                                            SourceLoc(), C.Id_into,
+                                            DeclNameLoc(), C.Id_hasher,
+                                            parentDC);
   hasherParamDecl->setSpecifier(ParamSpecifier::InOut);
   hasherParamDecl->setInterfaceType(hasherType);
 
@@ -888,7 +886,7 @@ static ValueDecl *deriveHashable_hashValue(DerivedConformance &derived) {
 
   VarDecl *hashValueDecl =
     new (C) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Var,
-                    /*IsCaptureList*/false, SourceLoc(),
+                    /*IsCaptureList*/false, DeclNameLoc(),
                     C.Id_hashValue, parentDC);
   hashValueDecl->setInterfaceType(intType);
 

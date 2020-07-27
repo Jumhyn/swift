@@ -180,7 +180,7 @@ ERROR(self_use_before_fully_init,none,
       "'self' used in %select{method call|property access}1 %0 before "
       "%select{all stored properties are initialized|"
       "'super.init' call|"
-      "'self.init' call}2", (DeclBaseName, bool, unsigned))
+      "'self.init' call}2", (DeclName, bool, unsigned))
 ERROR(use_of_self_before_fully_init,none,
       "'self' used before all stored properties are initialized", ())
 

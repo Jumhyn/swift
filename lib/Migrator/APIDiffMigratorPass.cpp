@@ -1258,7 +1258,7 @@ struct APIDiffMigratorPass : public ASTMigratorPass, public SourceEntityWalker {
     case NodeAnnotation::GetterToProperty: {
       auto FuncLoc = FD->getFuncLoc();
       auto ReturnTyLoc = FD->getBodyResultTypeLoc().getSourceRange().Start;
-      auto NameLoc = FD->getNameLoc().getBaseNameLoc();
+      auto NameLoc = FD->getNameLoc();
       if (FuncLoc.isInvalid() || ReturnTyLoc.isInvalid() || NameLoc.isInvalid())
         break;
 
@@ -1266,7 +1266,8 @@ struct APIDiffMigratorPass : public ASTMigratorPass, public SourceEntityWalker {
       Editor.replaceToken(FuncLoc, "var");
 
       // Replace "() -> " with ": "
-      Editor.replace(CharSourceRange(SM, Lexer::getLocForEndOfToken(SM, NameLoc),
+      Editor.replace(
+        CharSourceRange(SM, Lexer::getLocForEndOfToken(SM, NameLoc.getEndLoc()),
         ReturnTyLoc), ": ");
 
       break;
@@ -1440,8 +1441,7 @@ struct APIDiffMigratorPass : public ASTMigratorPass, public SourceEntityWalker {
           // If the overriden property has been renamed, we should rename
           // this property decl as well.
           if (CD->isRename() && VD->getNameLoc().isValid()) {
-            Editor.replaceToken(VD->getNameLoc().getBaseNameLoc(),
-                                CD->getNewName());
+            Editor.replace(VD->getNameLoc().getSourceRange(), CD->getNewName());
           }
         }
       }

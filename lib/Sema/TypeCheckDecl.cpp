@@ -2079,7 +2079,7 @@ ParamSpecifierRequest::evaluate(Evaluator &evaluator,
     auto &ctx = param->getASTContext();
     ctx.Diags.diagnose(param->getStructuralDefaultExpr()->getLoc(),
                        swift::diag::cannot_provide_default_value_inout,
-                       param->getBaseName());
+                       param->getName());
     return ParamSpecifier::Default;
   }
 
@@ -2281,11 +2281,9 @@ InterfaceTypeRequest::evaluate(Evaluator &eval, ValueDecl *D) const {
             TypeChecker::checkReferenceOwnershipAttr(VD, interfaceType, attr);
     }
 
-    if (VD->getName().isCompoundName()) {
+    if (VD->getName().isCompoundName())
       if (interfaceType->is<AnyFunctionType>())
-        interfaceType = applyFunctionArgumentLabels(VD->getName(),
-                                                    interfaceType);
-    }
+        return applyFunctionArgumentLabels(VD->getName(), interfaceType);
 
     return interfaceType;
   }

@@ -118,7 +118,7 @@ static void checkInheritanceClause(
     if (ext)
       return ext->getSourceRange().End;
 
-    return typeDecl->getNameLoc().getBaseNameLoc();
+    return typeDecl->getNameLoc();
   };
 
   // Compute the source range to be used when removing something from an
@@ -1334,7 +1334,7 @@ public:
         DE.diagnose(VD->getNameLoc(), diag::reserved_member_name,
                     VD->getName(), VD->getBaseIdentifier().str());
         DE.diagnose(VD->getNameLoc(), diag::backticks_to_escape)
-        .fixItReplace(VD->getNameLoc().getBaseNameLoc(),
+            .fixItReplace(VD->getNameLoc().getBaseNameLoc(),
                           "`" + VD->getBaseName().userFacingName().str() + "`");
       }
     }

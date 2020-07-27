@@ -510,7 +510,7 @@ public:
 
     VarDecl *VD =
         new (Context) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Let,
-                              /*IsCaptureList*/false, SourceLoc(),
+                              /*IsCaptureList*/false, DeclNameLoc(),
                               Context.getIdentifier(NameBuf),
                               TypeCheckDC);
     VD->setInterfaceType(MaybeLoadInitExpr->getType()->mapTypeOutOfContext());

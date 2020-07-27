@@ -500,7 +500,7 @@ private:
         return Stop;
     } else if (auto *VD = dyn_cast<VarDecl>(D)) {
       if (!handleBraces(VD->getBracesRange(),
-                        VD->getNameLoc().getBaseNameLoc()))
+                        VD->getNameLoc().getStartLoc()))
         return Stop;
     } else if (isa<AbstractFunctionDecl>(D) || isa<SubscriptDecl>(D)) {
       if (isa<SubscriptDecl>(D)) {
@@ -2766,7 +2766,7 @@ private:
 
       ListAligner Aligner(SM, TargetLocation, ContextLoc, L, R);
       for (auto &Elem: TP->getElements()) {
-        SourceRange ElemRange = Elem.getLabelLoc();
+        SourceRange ElemRange = Elem.getLabelLoc().getSourceRange();
         if (auto *P = Elem.getPattern())
           widenOrSet(ElemRange, P->getSourceRange());
         Aligner.updateAlignment(ElemRange, TP);

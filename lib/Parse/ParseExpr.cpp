@@ -2674,7 +2674,6 @@ parseClosureSignatureIfPresent(SourceRange &bracketRange,
 
       } else {
         // Otherwise, the name is a new declaration.
-        // Otherwise, the name is a new declaration.
         name = parseDeclName(nameLoc, diag::expected_decl_name,
                                   DeclNameFlag::AllowCompoundNames);
         equalLoc = consumeToken(tok::equal);
@@ -3132,7 +3131,7 @@ Parser::parseExprList(tok leftTok, tok rightTok, SyntaxKind Kind) {
 
   // A tuple with a single, unlabeled element is just parentheses.
   if (subExprs.size() == 1 &&
-      (subExprNames.empty() || subExprNames[0].getBaseName().empty())) {
+      (subExprNames.empty() || subExprNames[0].empty())) {
     return makeParserResult(
         status, new (Context) ParenExpr(leftLoc, subExprs[0], rightLoc,
                                         /*hasTrailingClosure=*/false));

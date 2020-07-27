@@ -85,9 +85,9 @@ static bool isKeyPathCurriedThunkCallExpr(Expr *E) {
     return false;
   if (thunk->getParameters()->size() != 1)
       return false;
-  auto param = thunk->getParameters()->get(0);
-  if (!param->getParameterName().isSimpleName() ||
-      param->getParameterName().getBaseIdentifier().str() != "$kp$")
+  auto paramName = thunk->getParameters()->get(0)->getParameterName();
+  if (!paramName.isSimpleName() ||
+      paramName.getBaseIdentifier().str() != "$kp$")
     return false;
 
   auto PE = dyn_cast<ParenExpr>(CE->getArg());
@@ -291,14 +291,14 @@ public:
       return result;
     }
 
-    return TupleExpr::create(C,
-                             argList.lParenLoc,
-                             argList.args,
-                             argList.labels,
-                             argList.labelLocs,
-                             argList.rParenLoc,
-                             argList.hasTrailingClosure,
-                             /*implicit=*/true);
+    return TupleExpr::createArgTuple(C,
+                                     argList.lParenLoc,
+                                     argList.args,
+                                     argList.labels,
+                                     argList.labelLocs,
+                                     argList.rParenLoc,
+                                     argList.hasTrailingClosure,
+                                     /*implicit=*/true);
   }
 
   Expr *walkToExprPost(Expr *expr) override {
@@ -579,9 +579,10 @@ TypeChecker::getTypeOfCompletionOperator(DeclContext *DC, Expr *LHS,
     //     (<LHS>)
     //     (code_completion_expr)))
     CodeCompletionExpr dummyRHS(Loc);
-    auto Args = TupleExpr::create(
-        DC->getASTContext(), SourceLoc(), {LHS, &dummyRHS}, DeclName(), {},
-        SourceLoc(), /*hasTrailingClosure=*/false, /*isImplicit=*/true);
+    auto Args = TupleExpr::create(DC->getASTContext(), SourceLoc(),
+                                  {LHS, &dummyRHS}, {}, {}, SourceLoc(),
+                                  /*hasTrailingClosure=*/false,
+                                  /*isImplicit=*/true);
     BinaryExpr binaryExpr(opExpr, Args, /*isImplicit=*/true);
 
     return getTypeOfCompletionOperatorImpl(DC, &binaryExpr,

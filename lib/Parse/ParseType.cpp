@@ -1205,6 +1205,8 @@ ParserResult<TypeRepr> Parser::parseTypeTupleBody() {
 
     // If there was a first name, complain; arguments in function types are
     // always unlabeled.
+    // FIXME: Eventually, we want 'var f: (x: Int) -> Void' to be sugar for
+    // 'var f(x:): (Int) -> Void'.
     if (element.NameLoc.isValid() && !element.Name.getBaseName().empty()) {
       auto diag = diagnose(element.NameLoc.getBaseNameLoc(),
                            diag::function_type_argument_label,

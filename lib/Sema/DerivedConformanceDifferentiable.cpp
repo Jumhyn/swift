@@ -299,10 +299,10 @@ deriveBodyDifferentiable_move(AbstractFunctionDecl *funcDecl, void *) {
 
   // Collect member `move(along:)` method call expressions.
   SmallVector<ASTNode, 2> memberMethodCallExprs;
-  SmallVector<Identifier, 2> memberNames;
+  SmallVector<DeclName, 2> memberNames;
   for (auto *member : diffProperties) {
     memberMethodCallExprs.push_back(createMemberMethodCallExpr(member));
-    memberNames.push_back(member->getName().getBaseIdentifier());
+    memberNames.push_back(member->getName());
   }
   auto *braceStmt = BraceStmt::create(C, SourceLoc(), memberMethodCallExprs,
                                       SourceLoc(), true);
@@ -432,7 +432,7 @@ deriveBodyDifferentiable_zeroTangentVectorInitializer(
                                              "_zeroTangentVectorInitializer");
     auto *memberZeroTanInitCaptureDecl = new (C) VarDecl(
         /*isStatic*/ false, VarDecl::Introducer::Let, /*isCaptureList*/ true,
-        SourceLoc(), memberCaptureName, funcDecl);
+        DeclNameLoc(), memberCaptureName, funcDecl);
     memberZeroTanInitCaptureDecl->setImplicit();
     auto *memberZeroTanInitPattern =
         NamedPattern::createImplicit(C, memberZeroTanInitCaptureDecl);
@@ -484,6 +484,7 @@ deriveBodyDifferentiable_zeroTangentVectorInitializer(
   SmallVector<Expr *, 4> memberZeroTanExprs;
   SmallVector<CaptureListEntry, 2> memberZeroTanInitCaptures;
   for (auto *member : diffProperties) {
+    // TODO: Handle compound names
     memberNames.push_back(member->getName().getBaseIdentifier());
     auto memberZeroTanInitCapture =
         createMemberZeroTanInitCaptureListEntry(member);
@@ -540,7 +541,7 @@ static ValueDecl *deriveDifferentiable_method(
   auto *parentDC = derived.getConformanceContext();
 
   auto *param = new (C) ParamDecl(SourceLoc(), SourceLoc(), argumentName,
-                                  SourceLoc(), parameterName, parentDC);
+                                  DeclNameLoc(), parameterName, parentDC);
   param->setSpecifier(ParamDecl::Specifier::Default);
   param->setInterfaceType(parameterType);
   ParameterList *params = ParameterList::create(C, {param});

@@ -360,8 +360,9 @@ PropertyWrapperTypeInfoRequest::evaluate(
                         /*allowMissing=*/true);
     if (result.projectedValueVar &&
         result.projectedValueVar->getLoc().isValid()) {
+      assert(result.projectedValueVar->getName().isSimpleName());
       result.projectedValueVar->diagnose(diag::property_wrapper_wrapperValue)
-      .fixItReplace(result.projectedValueVar->getNameLoc().getBaseNameLoc(),
+        .fixItReplace(result.projectedValueVar->getNameLoc().getBaseNameLoc(),
                       "projectedValue");
     }
   }
@@ -661,6 +662,8 @@ Expr *swift::buildPropertyWrapperWrappedValueCall(
 
     if (auto tuple = dyn_cast<TupleExpr>(attr->getArg())) {
       for (unsigned i : range(tuple->getNumElements())) {
+        assert(tuple->getElementName(i).isSimpleName() &&
+               "Arg must have simple name");
         elements.push_back(tuple->getElement(i));
         elementNames.push_back(tuple->getElementName(i).getBaseIdentifier());
         elementLocs.push_back(tuple->getElementNameLoc(i).getBaseNameLoc());

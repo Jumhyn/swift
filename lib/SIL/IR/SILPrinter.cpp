@@ -1781,18 +1781,21 @@ public:
   void visitStructExtractInst(StructExtractInst *EI) {
     *this << getIDAndType(EI->getOperand()) << ", #";
     printFullContext(EI->getField()->getDeclContext(), PrintState.OS);
-    *this << EI->getField()->getName().getBaseIdentifier().get();
+    llvm::SmallString<16> scratch;
+    *this << EI->getField()->getNameStr(scratch);
   }
   void visitStructElementAddrInst(StructElementAddrInst *EI) {
     *this << getIDAndType(EI->getOperand()) << ", #";
     printFullContext(EI->getField()->getDeclContext(), PrintState.OS);
-    *this << EI->getField()->getName().getBaseIdentifier().get();
+    llvm::SmallString<16> scratch;
+    *this << EI->getField()->getNameStr(scratch);
   }
   void visitRefElementAddrInst(RefElementAddrInst *EI) {
     *this << (EI->isImmutable() ? "[immutable] " : "")
           << getIDAndType(EI->getOperand()) << ", #";
     printFullContext(EI->getField()->getDeclContext(), PrintState.OS);
-    *this << EI->getField()->getName().getBaseIdentifier().get();
+    llvm::SmallString<16> scratch;
+    *this << EI->getField()->getNameStr(scratch);
   }
 
   void visitRefTailAddrInst(RefTailAddrInst *RTAI) {

@@ -388,8 +388,8 @@ static Expr *makeBinOp(ASTContext &Ctx, Expr *Op, Expr *LHS, Expr *RHS,
   auto ArgElts2 = Ctx.AllocateCopy(MutableArrayRef<Expr*>(ArgElts));
   TupleExpr *Arg = TupleExpr::create(Ctx,
                                      SourceLoc(),
-                                     ArgElts2, SmallVector<DeclName, 0>(), { },
-                                     SourceLoc(), /*HasTrailingClosure=*/false,
+                                     ArgElts2, { }, { }, SourceLoc(),
+                                     /*HasTrailingClosure=*/false,
                                      /*Implicit=*/true);
 
   

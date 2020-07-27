@@ -354,14 +354,14 @@ void *Pattern::operator new(size_t numBytes, const ASTContext &C) {
 /// Find the name directly bound by this pattern.  When used as a
 /// tuple element in a function signature, such names become part of
 /// the type.
-Identifier Pattern::getBoundName() const {
+DeclName Pattern::getBoundName() const {
   if (auto *NP = dyn_cast<NamedPattern>(getSemanticsProvidingPattern()))
     return NP->getBoundName();
-  return Identifier();
+  return DeclName();
 }
 
-Identifier NamedPattern::getBoundName() const {
-  return Var->getName().getBaseIdentifier();
+DeclName NamedPattern::getBoundName() const {
+  return Var->getName();
 }
 
 

@@ -295,7 +295,7 @@ static void doDynamicLookup(VisibleDeclConsumer &Consumer,
     const DeclContext *CurrDC;
     llvm::DenseSet<std::pair<DeclBaseName, CanType>> FunctionsReported;
     llvm::DenseSet<CanType> SubscriptsReported;
-    llvm::DenseSet<std::pair<Identifier, CanType>> PropertiesReported;
+    llvm::DenseSet<std::pair<DeclName, CanType>> PropertiesReported;
 
   public:
     explicit DynamicLookupConsumer(VisibleDeclConsumer &ChainedConsumer,
@@ -378,7 +378,7 @@ static void doDynamicLookup(VisibleDeclConsumer &Consumer,
       case DeclKind::Var: {
         auto *VD = cast<VarDecl>(D);
         auto Signature =
-            std::make_pair(VD->getBaseName(),
+            std::make_pair(VD->getName(),
                            VD->getInterfaceType()->getCanonicalType());
         if (!PropertiesReported.insert(Signature).second)
           return;

@@ -898,7 +898,7 @@ ERROR(argument_label_compound_name,none,
 
 WARNING(parameter_extraneous_double_up,none,
         "extraneous duplicate parameter name; %0 already has an argument "
-        "label", (Identifier))
+        "label", (DeclName))
 ERROR(parameter_operator_keyword_argument,none,
       "%select{operator|closure|enum case}0 cannot have keyword arguments",
       (unsigned))

@@ -2784,7 +2784,7 @@ bool ContextualFailure::tryProtocolConformanceFixIt(
     conformanceDiag.fixItInsert(lastInheritedEndLoc, ", " + protoString);
   } else {
     auto nameEndLoc = Lexer::getLocForEndOfToken(getASTContext().SourceMgr,
-                                        nominal->getNameLoc().getBaseNameLoc());
+                                        nominal->getNameLoc());
     conformanceDiag.fixItInsert(nameEndLoc, ": " + protoString);
   }
 

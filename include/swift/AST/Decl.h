@@ -2813,6 +2813,10 @@ public:
     return hasName() ? getBaseIdentifier().str() : "_";
   }
 
+  SourceLoc getNameLoc() const {
+    return ValueDecl::getNameLoc().getBaseNameLoc();
+  }
+
   /// The type of this declaration's values. For the type of the
   /// declaration itself, use getInterfaceType(), which returns a
   /// metatype.
@@ -3129,7 +3133,7 @@ public:
   /// Here 'T' and 'U' have indexes 0 and 1, respectively. 'V' has index 0.
   unsigned getIndex() const { return Bits.GenericTypeParamDecl.Index; }
 
-  SourceLoc getStartLoc() const { return getNameLoc().getBaseNameLoc(); }
+  SourceLoc getStartLoc() const { return getNameLoc(); }
   SourceRange getSourceRange() const;
 
   static bool classof(const Decl *D) {
@@ -4906,14 +4910,7 @@ public:
     : VarDecl(DeclKind::Var, isStatic, introducer, isCaptureList, nameLoc,
               name, dc, StorageIsMutable_t(introducer == Introducer::Var)) {}
 
- VarDecl(bool isStatic, Introducer introducer, bool isCaptureList,
-         SourceLoc nameLoc, Identifier name, DeclContext *dc)
-    : VarDecl(isStatic, introducer, isCaptureList, DeclNameLoc(nameLoc), name,
-              dc) {}
-
   SourceRange getSourceRange() const;
-
-  Identifier getBaseName() const { return getBaseIdentifier(); }
 
   /// Returns the string for the base name, or "_" if this is unnamed.
   StringRef getNameStr(llvm::SmallVectorImpl<char> &scratch) const {
@@ -5349,12 +5346,6 @@ public:
   ParamDecl(SourceLoc specifierLoc, SourceLoc argumentNameLoc,
             Identifier argumentName, DeclNameLoc parameterNameLoc,
             DeclName parameterName, DeclContext *dc);
-
-  ParamDecl(SourceLoc specifierLoc, SourceLoc argumentNameLoc,
-            Identifier argumentName, SourceLoc parameterNameLoc,
-            Identifier parameterName, DeclContext *dc)
-    : ParamDecl(specifierLoc, argumentNameLoc, argumentName,
-                DeclNameLoc(parameterNameLoc), parameterName, dc) {}
 
   /// Create a new ParamDecl identical to the first except without the interface type.
   static ParamDecl *cloneWithoutType(const ASTContext &Ctx, ParamDecl *PD);
@@ -5842,11 +5833,11 @@ protected:
   } LazySemanticInfo = { };
 
   AbstractFunctionDecl(DeclKind Kind, DeclContext *Parent, DeclName Name,
-                       DeclNameLoc NameLoc, bool Throws, SourceLoc ThrowsLoc,
+                       SourceLoc NameLoc, bool Throws, SourceLoc ThrowsLoc,
                        bool HasImplicitSelfDecl,
                        GenericParamList *GenericParams)
       : GenericContext(DeclContextKind::AbstractFunctionDecl, Parent, GenericParams),
-        ValueDecl(Kind, Parent, Name, NameLoc),
+        ValueDecl(Kind, Parent, Name, DeclNameLoc(NameLoc)),
         Body(nullptr), ThrowsLoc(ThrowsLoc) {
     setBodyKind(BodyKind::None);
     Bits.AbstractFunctionDecl.HasImplicitSelfDecl = HasImplicitSelfDecl;
@@ -6162,7 +6153,7 @@ protected:
            bool HasImplicitSelfDecl,
            GenericParamList *GenericParams, DeclContext *Parent)
     : AbstractFunctionDecl(Kind, Parent,
-                           Name, DeclNameLoc(NameLoc),
+                           Name, NameLoc,
                            Throws, ThrowsLoc,
                            HasImplicitSelfDecl, GenericParams),
       StaticLoc(StaticLoc), FuncLoc(FuncLoc) {
@@ -6607,7 +6598,7 @@ public:
   EnumCaseDecl *getParentCase() const;
 
   SourceLoc getStartLoc() const {
-    return getNameLoc().getBaseNameLoc();
+    return getNameLoc().getStartLoc();
   }
   SourceRange getSourceRange() const;
   

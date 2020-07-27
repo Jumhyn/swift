@@ -899,16 +899,16 @@ static ArrayRef<Identifier> getArgumentLabelsFromArgument(
 
   // A tuple expression stores its element names, if they exist.
   if (auto tuple = dyn_cast<TupleExpr>(arg)) {
-    if (sourceLocs && tuple->hasElementNameLocs()) {
+    if (sourceLocs && tuple->hasElementNameLocs())
       for (auto loc : tuple->getElementNameLocs())
         sourceLocs->push_back(loc.getBaseNameLoc());
-    }
 
     if (hasTrailingClosure) *hasTrailingClosure = tuple->hasTrailingClosure();
 
     if (tuple->hasElementNames()) {
       assert(tuple->getElementNames().size() == tuple->getNumElements());
       for (auto &name : tuple->getElementNames()) {
+        assert(name.isSimpleName());
         scratch.push_back(name.getBaseIdentifier());
       }
       return scratch;
@@ -1011,10 +1011,11 @@ Expr *swift::packSingleArgument(ASTContext &ctx, SourceLoc lParenLoc,
       argLabelsScratch.assign(args.size(), Identifier());
       argLabels = argLabelsScratch;
     }
-      
-    auto arg = TupleExpr::create(ctx, lParenLoc, args, argLabels, argLabelLocs,
-                                 rParenLoc, /*HasTrailingClosure=*/false,
-                                 implicit);
+
+    auto arg = TupleExpr::createArgTuple(ctx, lParenLoc, args, argLabels,
+                                         argLabelLocs, rParenLoc,
+                                         /*HasTrailingClosure=*/false,
+                                         implicit);
     computeSingleArgumentType(ctx, arg, implicit, getType);
     return arg;
   }
@@ -1076,10 +1077,10 @@ Expr *swift::packSingleArgument(ASTContext &ctx, SourceLoc lParenLoc,
   if (!trailingClosures.empty() && trailingClosures[0].Label.empty())
     unlabeledTrailingClosureIndex = args.size() - trailingClosures.size();
 
-  auto arg = TupleExpr::create(ctx, lParenLoc, rParenLoc, args, argLabels,
-                               argLabelLocs,
-                               unlabeledTrailingClosureIndex,
-                               /*Implicit=*/false);
+  auto arg = TupleExpr::createArgTuple(ctx, lParenLoc, rParenLoc, args,
+                                       argLabels, argLabelLocs,
+                                       unlabeledTrailingClosureIndex,
+                                       /*Implicit=*/false);
   computeSingleArgumentType(ctx, arg, implicit, getType);
   return arg;
 }
@@ -1354,13 +1355,13 @@ TupleExpr *TupleExpr::create(ASTContext &ctx,
                 ElementNameLocs, FirstTrailingArgumentAt, Implicit, Ty);
 }
 
-TupleExpr *TupleExpr::create(ASTContext &ctx,
-                             SourceLoc LParenLoc,
-                             ArrayRef<Expr *> SubExprs,
-                             ArrayRef<Identifier> ElementNames,
-                             ArrayRef<SourceLoc> ElementNameLocs,
-                             SourceLoc RParenLoc, bool HasTrailingClosure,
-                             bool Implicit, Type Ty) {
+TupleExpr *TupleExpr::createArgTuple(ASTContext &ctx,
+                                     SourceLoc LParenLoc,
+                                     ArrayRef<Expr *> SubExprs,
+                                     ArrayRef<Identifier> ElementNames,
+                                     ArrayRef<SourceLoc> ElementNameLocs,
+                                   SourceLoc RParenLoc, bool HasTrailingClosure,
+                                     bool Implicit, Type Ty) {
   SmallVector<DeclName, 2> names;
   SmallVector<DeclNameLoc, 2> locs;
 
@@ -1385,17 +1386,17 @@ TupleExpr *TupleExpr::create(ASTContext &ctx,
                              Optional<unsigned> FirstTrailingArgumentAt,
                              bool Implicit, Type Ty) {
   assert(!Ty || isa<TupleType>(Ty.getPointer()));
-  auto hasNonEmptyIdentifier = [](ArrayRef<DeclName> Ids) -> bool {
+  auto hasNonEmptyName = [](ArrayRef<DeclName> Ids) -> bool {
     for (auto ident : Ids) {
-      if (!ident.getBaseName().empty())
+      if (!ident.empty())
         return true;
     }
     return false;
   };
   assert((Implicit || ElementNames.size() == ElementNameLocs.size() ||
-          (!hasNonEmptyIdentifier(ElementNames) && ElementNameLocs.empty())) &&
+          (!hasNonEmptyName(ElementNames) && ElementNameLocs.empty())) &&
          "trying to create non-implicit tuple-expr without name locations");
-  (void)hasNonEmptyIdentifier;
+  (void)hasNonEmptyName;
 
   size_t size =
       totalSizeToAlloc<Expr *, DeclName, DeclNameLoc>(SubExprs.size(),
@@ -1407,14 +1408,14 @@ TupleExpr *TupleExpr::create(ASTContext &ctx,
                              FirstTrailingArgumentAt, Implicit, Ty);
 }
 
-TupleExpr * TupleExpr::create(ASTContext &ctx,
-                              SourceLoc LParenLoc,
-                              SourceLoc RParenLoc,
-                              ArrayRef<Expr *> SubExprs,
-                              ArrayRef<Identifier> ElementNames,
-                              ArrayRef<SourceLoc> ElementNameLocs,
-                              Optional<unsigned> FirstTrailingArgumentAt,
-                              bool Implicit, Type Ty) {
+TupleExpr * TupleExpr::createArgTuple(ASTContext &ctx,
+                                      SourceLoc LParenLoc,
+                                      SourceLoc RParenLoc,
+                                      ArrayRef<Expr *> SubExprs,
+                                      ArrayRef<Identifier> ElementNames,
+                                      ArrayRef<SourceLoc> ElementNameLocs,
+                                     Optional<unsigned> FirstTrailingArgumentAt,
+                                      bool Implicit, Type Ty) {
   assert(ElementNames.size() == ElementNameLocs.size());
 
   SmallVector<DeclName, 2> names;
@@ -1429,9 +1430,9 @@ TupleExpr * TupleExpr::create(ASTContext &ctx,
                            FirstTrailingArgumentAt, Implicit, Ty);
 }
 
-TupleExpr *TupleExpr::createEmpty(ASTContext &ctx, SourceLoc LParenLoc, 
+TupleExpr *TupleExpr::createEmpty(ASTContext &ctx, SourceLoc LParenLoc,
                                   SourceLoc RParenLoc, bool Implicit) {
-  return create(ctx, LParenLoc, RParenLoc, {}, SmallVector<DeclName, 0>(), {},
+  return create(ctx, LParenLoc, RParenLoc, {}, {}, {},
                 /*FirstTrailingArgumentAt=*/None, Implicit,
                 TupleType::getEmpty(ctx));
 }

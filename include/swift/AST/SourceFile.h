@@ -22,7 +22,6 @@
 namespace swift {
 
 class PersistentParserState;
-class SourceManager;
 
 /// A file containing Swift source code.
 ///

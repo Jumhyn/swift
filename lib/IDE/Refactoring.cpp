@@ -3123,11 +3123,11 @@ bool RefactoringActionLocalizeString::performChange() {
 }
 
 struct MemberwiseParameter {
-  Identifier Name;
+  DeclName Name;
   Type MemberType;
   Expr *DefaultExpr;
 
-  MemberwiseParameter(Identifier name, Type type, Expr *initialExpr)
+  MemberwiseParameter(DeclName name, Type type, Expr *initialExpr)
       : Name(name), MemberType(type), DefaultExpr(initialExpr) {}
 };
 
@@ -3226,7 +3226,7 @@ collectMembersForInit(ResolvedCursorInfo CursorInfo,
       defaultInit = varDecl->getParentInitializer();
     }
 
-    memberVector.emplace_back(varDecl->getBaseName(),
+    memberVector.emplace_back(varDecl->getName(),
                               varDecl->getType(), defaultInit);
   }
   
@@ -3318,7 +3318,7 @@ public:
   Adopter(Decl->getDeclaredType()), StartLoc(Decl->getBraces().Start),
   ProtocolsLocations(Decl->getInherited()),
   Protocols(Decl->getAllProtocols()),
-  ProtInsertStartLoc(Decl->getNameLoc().getBaseNameLoc()),
+  ProtInsertStartLoc(Decl->getNameLoc()),
   StoredProperties(Decl->getStoredProperties()), Range(Decl->getMembers()) {};
 
   AddEquatableContext(ExtensionDecl *Decl) : DC(Decl),

@@ -2311,7 +2311,8 @@ Address IRGenModule::getAddrOfSILGlobalVariable(SILGlobalVariable *var,
       if (var->getDecl()) {
         // Use the VarDecl for more accurate debugging information.
         loc = var->getDecl();
-        name = var->getDecl()->getBaseName().str();
+        llvm::SmallString<16> scratch;
+        name = var->getDecl()->getNameStr(scratch);
       } else {
         if (var->hasLocation())
           loc = var->getLocation();

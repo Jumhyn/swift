@@ -1594,6 +1594,7 @@ static bool fixMissingArguments(ConstraintSystem &cs, ASTNode anchor,
     if (auto *tuple = argType->getAs<TupleType>()) {
       args.pop_back();
       for (const auto &elt : tuple->getElements()) {
+        // TODO: Handle compound names
         args.push_back(AnyFunctionType::Param(elt.getType(),
                                               elt.getName().getBaseIdentifier(),
                                               elt.getParameterFlags()));

@@ -452,7 +452,7 @@ static bool escapeKeywordInContext(StringRef keyword, PrintNameContext context){
 void ASTPrinter::printName(DeclName Name, PrintNameContext Context) {
   callPrintNamePre(Context);
 
-  if (Name.getBaseName().empty()) {
+  if (Name.empty()) {
     *this << "_";
     printNamePost(Context);
     return;
@@ -2697,7 +2697,7 @@ void PrintAST::visitVarDecl(VarDecl *decl) {
   printContextIfNeeded(decl);
   recordDeclLoc(decl,
     [&]{
-      Printer.printName(decl->getBaseName(), getTypeMemberPrintNameContext(decl));
+      Printer.printName(decl->getName(), getTypeMemberPrintNameContext(decl));
     });
 
   auto type = decl->getInterfaceType();
@@ -2741,8 +2741,7 @@ void PrintAST::printOneParameter(const ParamDecl *param,
     auto BodyName = param->getName();
     switch (Options.ArgAndParamPrinting) {
     case PrintOptions::ArgAndParamPrintingMode::EnumElement:
-      if (ArgName.empty() && BodyName.getBaseIdentifier().empty() &&
-          !param->hasDefaultExpr()) {
+      if (ArgName.empty() && BodyName.empty() && !param->hasDefaultExpr()) {
         // Don't print anything, in the style of a tuple element.
         return;
       }
@@ -2915,7 +2914,7 @@ void PrintAST::visitAccessorDecl(AccessorDecl *decl) {
         auto params = decl->getParameters();
         if (params->size() != 0 && !params->get(0)->isImplicit()) {
           auto Name = params->get(0)->getName();
-          if (!Name.getBaseIdentifier().empty()) {
+          if (!Name.empty()) {
             Printer << "(";
             Printer.printName(Name);
             Printer << ")";
@@ -4985,7 +4984,8 @@ void swift::printEnumElementsAsCases(
     for (auto i = PL->begin(); i != PL->end(); ++i) {
       auto *param = *i;
       if (param->hasName()) {
-        OS << tok::kw_let << " " << param->getName().getBaseIdentifier().str();
+        llvm::SmallString<16> scratch;
+        OS << tok::kw_let << " " << param->getName().getString(scratch);
       } else {
         OS << "_";
       }

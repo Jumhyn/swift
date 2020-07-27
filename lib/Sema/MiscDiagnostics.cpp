@@ -289,7 +289,7 @@ static void diagSyntacticUseRestrictions(const Expr *E, const DeclContext *DC,
           names.reserve(tupleExpr->getNumElements());
 
           for (auto name : tupleExpr->getElementNames()) {
-            if (name.getBaseName().empty())
+            if (name.empty())
               continue;
 
             if (names.count(name) == 1) {
@@ -451,15 +451,15 @@ static void diagSyntacticUseRestrictions(const Expr *E, const DeclContext *DC,
 
       // Emit main warning
       Ctx.Diags.diagnose(arg->getLoc(), diag::default_magic_identifier_mismatch,
-                         callerParam->getBaseName(), callerDefaultArgString,
-                         calleeParam->getBaseName(), calleeDefaultArgString);
+                         callerParam->getName(), callerDefaultArgString,
+                         calleeParam->getName(), calleeDefaultArgString);
 
       // Add "change caller default arg" fixit
       SourceLoc callerDefaultArgLoc =
           callerParam->getStructuralDefaultExpr()->getLoc();
       Ctx.Diags.diagnose(callerDefaultArgLoc,
                          diag::change_caller_default_to_match_callee,
-                         callerParam->getBaseName(), calleeDefaultArgString)
+                         callerParam->getName(), calleeDefaultArgString)
         .fixItReplace(callerDefaultArgLoc, calleeDefaultArgString);
 
       // Add "silence with parens" fixit
@@ -2357,7 +2357,8 @@ public:
     }
     
     // If the variable is already unnamed, ignore it.
-    if (!VD->hasName() || VD->getBaseName().str() == "_")
+    if (!VD->hasName() ||
+        (VD->getName().isSimpleName() && VD->getBaseIdentifier().str() == "_"))
       return false;
     
     return true;
@@ -2706,12 +2707,12 @@ VarDeclUsageChecker::~VarDeclUsageChecker() {
           auto found = AssociatedGetterRefExpr.find(VD);
           if (found != AssociatedGetterRefExpr.end()) {
             auto *DRE = found->second;
+            llvm::SmallString<16> scratch;
             Diags.diagnose(DRE->getLoc(), diag::unused_setter_parameter,
                            var->getName());
             Diags.diagnose(DRE->getLoc(), diag::fixit_for_unused_setter_parameter,
                            var->getName())
-            // TODO: Need to replace with the full name...
-              .fixItReplace(DRE->getSourceRange(), var->getBaseName().str());
+              .fixItReplace(DRE->getSourceRange(), var->getNameStr(scratch));
           }
         }
       }
@@ -3323,7 +3324,8 @@ static void checkStmtConditionTrailingClosure(ASTContext &ctx, const Expr *E) {
       Identifier closureLabel;
       if (auto TT = argsTy->getAs<TupleType>()) {
         assert(TT->getNumElements() != 0 && "Unexpected empty TupleType");
-        closureLabel = TT->getElement(TT->getNumElements() - 1).getName().getBaseIdentifier();
+        auto elt = TT->getElement(TT->getNumElements() - 1);
+        closureLabel = elt.getName().getBaseIdentifier();
       }
 
       auto diag = Ctx.Diags.diagnose(closureLoc,
@@ -4663,7 +4665,7 @@ Optional<DeclName> TypeChecker::omitNeedlessWords(AbstractFunctionDecl *afd) {
   StringRef firstParamName;
   llvm::SmallVector<char, 16> paramScratch;
   auto params = afd->getParameters();
-  if (params->size() != 0 && !params->get(0)->getBaseName().empty())
+  if (params->size() != 0 && !params->get(0)->getName().empty())
     firstParamName = params->get(0)->getName().getString(paramScratch);
 
   StringScratchSpace scratch;
@@ -4705,10 +4707,11 @@ Optional<Identifier> TypeChecker::omitNeedlessWords(VarDecl *var) {
   if (var->isInvalid())
     return None;
 
-  if (var->getBaseName().empty())
+  if (var->getName().empty())
     return None;
 
-  auto name = var->getBaseName().str();
+  llvm::SmallString<16> nameScratch;
+  auto name = var->getName().getString(nameScratch);
 
   // Dig out the context type.
   Type contextType = var->getDeclContext()->getDeclaredInterfaceType();

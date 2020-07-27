@@ -570,7 +570,7 @@ public:
   DeclNameLoc consumeArgumentLabel(DeclName &Result,
                                    bool allowCompound = false) {
     assert(Tok.canBeArgumentLabel());
-    assert(Result.getBaseIdentifier().empty());
+    assert(Result.empty());
     if (!Tok.is(tok::kw__)) {
       Tok.setKind(tok::identifier);
       if (allowCompound) {
@@ -1280,7 +1280,8 @@ public:
 
     /// The location of the first name.
     ///
-    /// \c FirstName is the name.
+    /// \c FirstName is the name. See \c FirstName for why this isn't a
+    /// \c SourceLoc.
     DeclNameLoc FirstNameLoc;
 
     /// The location of the second name, if present.
@@ -1291,7 +1292,9 @@ public:
     /// The location of the '...', if present.
     SourceLoc EllipsisLoc;
 
-    /// The first name.
+    /// The first name. Technically, this should be a \c Identifier rather than
+    /// a \c DeclName, but we allow compound names to be parsed in order to
+    /// offer better diagnostics.
     DeclName FirstName;
 
     /// The second name, the presence of which is indicated by \c SecondNameLoc.
@@ -1492,6 +1495,8 @@ public:
   void parseOptionalArgumentLabel(DeclName &name, DeclNameLoc &loc,
                                   bool allowCompound = false);
 
+  /// Strips the input names of any argument labels, leaving only the base names
+  /// (and locs) behind.
   void getSimpleArgumentLabels(SmallVectorImpl<DeclName> &inLabels,
                                SmallVectorImpl<DeclNameLoc> &inLocs,
                                SmallVectorImpl<Identifier> &outLabels,
@@ -1539,6 +1544,8 @@ public:
   ///     unqualified-decl-base-name '(' ((identifier | '_') ':') + ')'
   DeclNameRef parseDeclNameRef(DeclNameLoc &loc, const Diagnostic &diag,
                                DeclNameOptions flags);
+  /// Convenience for the above when the name is in 'decl' position rather than
+  /// 'ref' position.
   DeclName parseDeclName(DeclNameLoc &loc, const Diagnostic &diag,
                          DeclNameOptions flags);
 

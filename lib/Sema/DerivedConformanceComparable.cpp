@@ -79,8 +79,7 @@ deriveBodyComparable_enum_noAssociatedValues_lt(AbstractFunctionDecl *ltDecl,
                                           AccessSemantics::Ordinary);
 
   TupleExpr *abTuple = TupleExpr::create(C, SourceLoc(), { aIndex, bIndex },
-                                         SmallVector<DeclName, 2>(), { },
-                                         SourceLoc(),
+                                         { }, { }, SourceLoc(),
                                          /*HasTrailingClosure*/ false,
                                          /*Implicit*/ true);
 
@@ -209,9 +208,8 @@ deriveBodyComparable_enum_hasAssociatedValues_lt(AbstractFunctionDecl *ltDecl, v
   // switch (a, b) { <case statements> }
   auto aRef = new (C) DeclRefExpr(aParam, DeclNameLoc(), /*implicit*/true);
   auto bRef = new (C) DeclRefExpr(bParam, DeclNameLoc(), /*implicit*/true);
-  auto abExpr = TupleExpr::create(C, SourceLoc(), { aRef, bRef },
-                                  SmallVector<DeclName, 2>(), {}, SourceLoc(),
-                                  /*HasTrailingClosure*/ false,
+  auto abExpr = TupleExpr::create(C, SourceLoc(), { aRef, bRef }, {}, {},
+                                  SourceLoc(), /*HasTrailingClosure*/ false,
                                   /*implicit*/ true);
   auto switchStmt = SwitchStmt::create(LabeledStmtInfo(), SourceLoc(), abExpr,
                                        SourceLoc(), cases, SourceLoc(), C);
@@ -234,7 +232,7 @@ deriveComparable_lt(
 
   auto getParamDecl = [&](StringRef s) -> ParamDecl * {
     auto *param = new (C) ParamDecl(SourceLoc(),
-                                    SourceLoc(), Identifier(), SourceLoc(),
+                                    SourceLoc(), Identifier(), DeclNameLoc(),
                                     C.getIdentifier(s), parentDC);
     param->setSpecifier(ParamSpecifier::Default);
     param->setInterfaceType(selfIfaceTy);

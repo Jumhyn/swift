@@ -2956,6 +2956,7 @@ void AnyFunctionType::decomposeInput(
   case TypeKind::Tuple: {
     auto tupleTy = cast<TupleType>(type.getPointer());
     for (auto &elt : tupleTy->getElements()) {
+      assert(elt.getName().isSimpleName() && "Arg label must be simple");
       result.emplace_back((elt.isVararg()
                            ? elt.getVarargBaseTy()
                            : elt.getRawType()),

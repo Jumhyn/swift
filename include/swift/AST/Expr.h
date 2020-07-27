@@ -2147,13 +2147,13 @@ public:
                            SourceLoc RParenLoc, bool HasTrailingClosure, 
                            bool Implicit, Type Ty = Type());
 
-  static TupleExpr *create(ASTContext &ctx,
-                           SourceLoc LParenLoc,
-                           ArrayRef<Expr *> SubExprs,
-                           ArrayRef<Identifier> ElementNames,
-                           ArrayRef<SourceLoc> ElementNameLocs,
-                           SourceLoc RParenLoc, bool HasTrailingClosure,
-                           bool Implicit, Type Ty = Type());
+  static TupleExpr *createArgTuple(ASTContext &ctx,
+                                   SourceLoc LParenLoc,
+                                   ArrayRef<Expr *> SubExprs,
+                                   ArrayRef<Identifier> ElementNames,
+                                   ArrayRef<SourceLoc> ElementNameLocs,
+                                   SourceLoc RParenLoc, bool HasTrailingClosure,
+                                   bool Implicit, Type Ty = Type());
 
   static TupleExpr *create(ASTContext &ctx,
                            SourceLoc LParenLoc,
@@ -2164,14 +2164,14 @@ public:
                            Optional<unsigned> FirstTrailingArgumentAt,
                            bool Implicit, Type Ty = Type());
 
-  static TupleExpr *create(ASTContext &ctx,
-                           SourceLoc LParenLoc,
-                           SourceLoc RParenLoc,
-                           ArrayRef<Expr *> SubExprs,
-                           ArrayRef<Identifier> ElementNames,
-                           ArrayRef<SourceLoc> ElementNameLocs,
-                           Optional<unsigned> FirstTrailingArgumentAt,
-                           bool Implicit, Type Ty = Type());
+  static TupleExpr *createArgTuple(ASTContext &ctx,
+                                   SourceLoc LParenLoc,
+                                   SourceLoc RParenLoc,
+                                   ArrayRef<Expr *> SubExprs,
+                                   ArrayRef<Identifier> ElementNames,
+                                   ArrayRef<SourceLoc> ElementNameLocs,
+                                   Optional<unsigned> FirstTrailingArgumentAt,
+                                   bool Implicit, Type Ty = Type());
 
   /// Create an empty tuple.
   static TupleExpr *createEmpty(ASTContext &ctx, SourceLoc LParenLoc, 

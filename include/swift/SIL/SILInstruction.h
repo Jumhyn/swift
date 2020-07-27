@@ -1382,11 +1382,12 @@ public:
   Optional<SILDebugVariable> get(VarDecl *VD, const char *buf) const {
     if (!Bits.Data.HasValue)
       return None;
-    if (VD)
-      return SILDebugVariable(VD->getBaseName().empty()
-                                ? ""
-                                : VD->getBaseName().str(),
-                              VD->isLet(), getArgNo());
+    if (VD) {
+      llvm::SmallString<16> scratch;
+      auto nameStr = VD->getName().empty()
+        ? "" : VD->getName().getString(scratch);
+      return SILDebugVariable(nameStr, VD->isLet(), getArgNo());
+    }
     else
       return SILDebugVariable(getName(buf), isLet(), getArgNo());
   }

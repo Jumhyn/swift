@@ -3470,6 +3470,8 @@ Type TypeResolver::resolveTupleType(TupleTypeRepr *repr,
 
     auto eltName = repr->getElementName(i);
 
+    // If the tuple element has a compound name, apply the argument labels to
+    // the element's function type.
     if (eltName.isCompoundName()) {
       if (auto *fnTy = ty->getAs<AnyFunctionType>()) {
         assert(eltName.getArgumentNames().size() == fnTy->getParams().size());

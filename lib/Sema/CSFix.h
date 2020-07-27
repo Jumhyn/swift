@@ -829,6 +829,7 @@ class UseWrappedValue final : public ConstraintFix {
         PropertyWrapper(propertyWrapper), Base(base), Wrapper(wrapper) {}
 
   bool usingStorageWrapper() const {
+    // TODO: Handle compound names
     auto nameStr = PropertyWrapper->getName().getBaseIdentifier().str();
     return !nameStr.startswith("_");
   }

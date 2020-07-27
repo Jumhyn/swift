@@ -621,31 +621,35 @@ public:
   Added<Stmt *> logVarDecl(VarDecl *VD) {
     if (isa<ConstructorDecl>(TypeCheckDC) &&
         VD->getName().isSimpleName() &&
-        VD->getBaseName().str().equals("self")) {
+        VD->getBaseIdentifier().str().equals("self")) {
       // Don't log "self" in a constructor
       return nullptr;
     }
 
+    llvm::SmallString<16> scratch;
     return buildLoggerCall(
         new (Context) DeclRefExpr(ConcreteDeclRef(VD), DeclNameLoc(),
                                   true, // implicit
                                   AccessSemantics::Ordinary, Type()),
-        VD->getSourceRange(), VD->getBaseName().str());
+        VD->getSourceRange(), VD->getNameStr(scratch));
   }
 
   Added<Stmt *> logDeclOrMemberRef(Added<Expr *> RE) {
     if (auto *DRE = dyn_cast<DeclRefExpr>(*RE)) {
       VarDecl *VD = cast<VarDecl>(DRE->getDecl());
+      auto name = VD->getName();
 
-      if (isa<ConstructorDecl>(TypeCheckDC) && VD->getName().getBaseName() == "self") {
+      if (isa<ConstructorDecl>(TypeCheckDC) && name.isSimpleName() &&
+          name.getBaseName() == "self") {
         // Don't log "self" in a constructor
         return nullptr;
       }
 
+      llvm::SmallString<16> scratch;
       return buildLoggerCall(
           new (Context) DeclRefExpr(ConcreteDeclRef(VD), DeclNameLoc(),
                                     /*implicit=*/true),
-          DRE->getSourceRange(), VD->getBaseName().str());
+          DRE->getSourceRange(), VD->getNameStr(scratch));
     } else if (auto *MRE = dyn_cast<MemberRefExpr>(*RE)) {
       Expr *B = MRE->getBase();
       ConcreteDeclRef M = MRE->getMember();
@@ -759,7 +763,7 @@ public:
 
     VarDecl *VD =
         new (Context) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Let,
-                              /*IsCaptureList*/false, SourceLoc(),
+                              /*IsCaptureList*/false, DeclNameLoc(),
                               Context.getIdentifier(NameBuf),
                               TypeCheckDC);
     VD->setInterfaceType(MaybeLoadInitExpr->getType()->mapTypeOutOfContext());

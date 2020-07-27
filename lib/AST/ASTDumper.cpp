@@ -456,7 +456,10 @@ namespace {
       interleave(P->getElements(),
                  [&](const TuplePatternElt &elt) {
                    auto name = elt.getLabel();
-                   OS << (name.empty() ? "''" : name.str());
+                   if (name.empty())
+                     OS << "''";
+                   else
+                     name.print(OS);
                  },
                  [&] { OS << ","; });
 
@@ -2143,11 +2146,13 @@ public:
 
       interleave(E->getElementNames(),
                  [&](DeclName name) {
-                   PrintWithColorRAII color(OS, IdentifierColor);
                    if (name.getBaseName().empty())
-                     OS << "''";
-                   else
-                     name.print(OS);
+                       PrintWithColorRAII(OS, IdentifierColor) << "''";
+                   else {
+                     llvm::SmallString<16> scratch;
+                     PrintWithColorRAII(OS, IdentifierColor) <<
+                       name.getString(scratch);
+                   }
                  },
                  [&] { PrintWithColorRAII(OS, IdentifierColor) << ","; });
     }
@@ -3006,12 +3011,12 @@ public:
         if (i) OS << ",";
         auto name = T->getElementName(i);
         if (T->isNamedParameter(i)) {
-          OS << (name.getBaseName().empty() ? "_" : "_ ");
-          if (!name.getBaseName().empty())
+          OS << (name.empty() ? "_" : "_ ");
+          if (!name.empty())
             name.print(OS);
         }
         else {
-          if (name.getBaseName().empty()) {
+          if (name.empty()) {
             OS << "''";
           } else {
             name.print(OS);

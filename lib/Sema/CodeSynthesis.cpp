@@ -125,8 +125,9 @@ Expr *swift::buildArgumentForwardingExpr(ArrayRef<ParamDecl*> params,
                                   /*hasTrailingClosure=*/false);
     argExpr->setImplicit();
   } else {
-    argExpr = TupleExpr::create(ctx, SourceLoc(), args, labels, labelLocs,
-                                SourceLoc(), false, IsImplicit);
+    argExpr = TupleExpr::createArgTuple(ctx, SourceLoc(), args, labels,
+                                        labelLocs, SourceLoc(), false,
+                                        IsImplicit);
   }
 
   auto argTy = AnyFunctionType::composeInput(ctx, elts, /*canonical*/false);

@@ -372,9 +372,11 @@ DIMemoryObjectInfo::getPathStringToElement(unsigned Element,
           Result += '.';
           auto originalProperty = VD->getOriginalWrappedProperty();
           if (originalProperty) {
-            Result += originalProperty->getBaseName().str();
+            llvm::SmallString<16> scratch;
+            Result += originalProperty->getNameStr(scratch);
           } else {
-            Result += VD->getBaseName().str();
+            llvm::SmallString<16> scratch;
+            Result += VD->getNameStr(scratch);
           }
           getPathStringToElementRec(expansionContext, Module, FieldType,
                                     Element, Result);

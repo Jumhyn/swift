@@ -725,7 +725,7 @@ private:
                    Type objTy;
                    std::tie(objTy, kind) = getObjectTypeAndOptionality(
                        param, param->getInterfaceType());
-                   print(objTy, kind, param->getBaseName(), IsFunctionParam);
+                   print(objTy, kind, param->getName(), IsFunctionParam);
                  },
                  [&] { os << ", "; });
     } else {

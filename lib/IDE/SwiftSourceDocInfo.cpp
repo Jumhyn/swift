@@ -123,18 +123,18 @@ static std::vector<CharSourceRange> getLabelRanges(const ParameterList* List,
       continue;
 
     SourceLoc NameLoc = Param->getArgumentNameLoc();
-    SourceLoc ParamLoc = Param->getParameterNameLoc().getBaseNameLoc();
+    DeclNameLoc ParamLoc = Param->getParameterNameLoc();
     size_t NameLength;
     if (NameLoc.isValid()) {
       LabelRanges.push_back(Lexer::getCharSourceRangeFromSourceRange(
-                                SM, SourceRange(NameLoc, ParamLoc)));
+                               SM, SourceRange(NameLoc, ParamLoc.getEndLoc())));
     } else {
       llvm::SmallString<16> scratch;
-      NameLoc = ParamLoc;
       NameLength = Param->getNameStr(scratch).size();
-      if (SM.extractText({NameLoc, 1}) == "`")
+      if (SM.extractText({ParamLoc.getStartLoc(), 1}) == "`")
         NameLength += 2;
-      LabelRanges.push_back(CharSourceRange(NameLoc, NameLength));
+      LabelRanges.push_back(CharSourceRange(ParamLoc.getStartLoc(),
+                                            NameLength));
     }
   }
   return LabelRanges;
@@ -153,7 +153,7 @@ static std::vector<CharSourceRange> getEnumParamListInfo(SourceManager &SM,
     SourceLoc LabelEnd(LabelStart);
     
     if (Param->getNameLoc().isValid()) {
-      LabelStart = Param->getNameLoc().getBaseNameLoc();
+      LabelStart = Param->getNameLoc().getStartLoc();
     }
     LabelRanges.push_back(CharSourceRange(SM, LabelStart, LabelEnd));
   }
@@ -399,6 +399,7 @@ std::pair<bool, Expr*> NameMatcher::walkToExprPre(Expr *E) {
         for (unsigned i = 0, e = T->getNumElements(); i != e; ++i) {
           auto Name = T->getElementName(i);
           if (!Name.empty()) {
+            assert(Name.isSimpleName() && "Arg label cannot be compound name");
             tryResolve(ASTWalker::ParentTy(E),
                        T->getElementNameLoc(i).getBaseNameLoc());
             if (isDone())
@@ -901,6 +902,8 @@ getCallArgInfo(SourceManager &SM, Expr *Arg, LabelRangeEndAt EndKind) {
       bool IsTrailingClosure = FirstTrailing && ElemIndex >= *FirstTrailing;
       SourceLoc NameLoc = TE->getElementNameLoc(ElemIndex).getBaseNameLoc();
       if (NameLoc.isValid()) {
+        assert(TE->getElementName(ElemIndex).isSimpleName() &&
+               "Arg label cannot be compound name");
         LabelStart = NameLoc;
         if (EndKind == LabelRangeEndAt::LabelNameOnly || IsTrailingClosure) {
           LabelEnd = Lexer::getLocForEndOfToken(SM, NameLoc);

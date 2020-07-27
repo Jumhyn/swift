@@ -2354,9 +2354,11 @@ void ASTMangler::appendTypeListElement(DeclName name, Type elementType,
     appendOperator("n");
     break;
   }
-  if (!name.getBaseIdentifier().empty())
+  if (!name.getBaseIdentifier().empty()) {
     // TODO: Come up with a mangling scheme!
-    appendIdentifier(name.getBaseIdentifier().str());
+    SmallString<16> scratch;
+    appendIdentifier(name.getString(scratch));
+  }
   if (flags.isVariadic())
     appendOperator("d");
 }

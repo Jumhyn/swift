@@ -288,7 +288,7 @@ Parser::parseParameterClause(SourceLoc &leftParenLoc,
       if ((paramContext == ParameterContextKind::Operator ||
            paramContext == ParameterContextKind::Closure ||
            paramContext == ParameterContextKind::EnumElement) &&
-          !param.FirstName.getBaseIdentifier().empty() &&
+          !param.FirstName.empty() &&
           param.SecondNameLoc.isValid()) {
         enum KeywordArgumentDiagnosticContextKind {
           Operator    = 0,
@@ -312,8 +312,8 @@ Parser::parseParameterClause(SourceLoc &leftParenLoc,
         diagnose(param.FirstNameLoc.getBaseNameLoc(),
                  diag::parameter_operator_keyword_argument,
                  unsigned(diagContextKind))
-        .fixItRemoveChars(param.FirstNameLoc.getBaseNameLoc(),
-                          param.SecondNameLoc.getBaseNameLoc());
+          .fixItRemoveChars(param.FirstNameLoc.getStartLoc(),
+                            param.SecondNameLoc.getStartLoc());
         param.FirstName = param.SecondName;
         param.FirstNameLoc = param.SecondNameLoc;
         param.SecondName = Identifier();
@@ -614,12 +614,12 @@ mapParsedParameters(Parser &parser,
       // If the first and second names are equivalent and non-empty, and we
       // would have an argument label by default, complain.
       if (isKeywordArgumentByDefault && param.FirstName == param.SecondName
-          && !param.FirstName.getBaseIdentifier().empty()) {
+          && !param.FirstName.empty()) {
         parser.diagnose(param.FirstNameLoc.getBaseNameLoc(),
                         diag::parameter_extraneous_double_up,
-                        param.FirstName.getBaseIdentifier())
-          .fixItRemoveChars(param.FirstNameLoc.getBaseNameLoc(),
-                            param.SecondNameLoc.getBaseNameLoc());
+                        param.FirstName)
+          .fixItRemoveChars(param.FirstNameLoc.getStartLoc(),
+                            param.SecondNameLoc.getStartLoc());
       }
     } else {
       if (isKeywordArgumentByDefault) {
@@ -635,7 +635,7 @@ mapParsedParameters(Parser &parser,
 
     // Warn when an unlabeled parameter follows a variadic parameter
     if (ellipsisLoc.isValid() && elements.back()->isVariadic() &&
-        param.FirstName.getBaseIdentifier().empty()) {
+        param.FirstName.empty()) {
       parser.diagnose(param.FirstNameLoc.getBaseNameLoc(),
                       diag::unlabeled_parameter_following_variadic_parameter);
     }
@@ -982,11 +982,17 @@ ParserResult<Pattern> Parser::parsePattern() {
     DeclNameLoc NameLoc;
     auto Name = parseDeclName(NameLoc, diag::expected_pattern,
                               DeclNameFlag::AllowCompoundNames);
-    if (Tok.isIdentifierOrUnderscore() && !Tok.isContextualDeclKeyword())
-      diagnoseConsecutiveIDs(Name.getBaseIdentifier().str(),
-                             NameLoc.getBaseNameLoc(),
-                             introducer == VarDecl::Introducer::Let
-                             ? "constant" : "variable");
+    if (Tok.isIdentifierOrUnderscore() && !Tok.isContextualDeclKeyword()) {
+      if (Name.isSimpleName())
+        diagnoseConsecutiveIDs(Name.getBaseIdentifier().str(),
+                               NameLoc.getBaseNameLoc(),
+                               introducer == VarDecl::Introducer::Let
+                               ? "constant" : "variable");
+      // TODO: Handle compound names (better)
+      else {
+        diagnose(NameLoc.getBaseNameLoc(), diag::expected_pattern);
+      }
+    }
 
     return makeParserResult(createBindingFromPattern(NameLoc.getBaseNameLoc(),
                                                      Name, introducer));
@@ -1058,12 +1064,15 @@ Pattern *Parser::createBindingFromPattern(SourceLoc loc, DeclName name,
 std::pair<ParserStatus, Optional<TuplePatternElt>>
 Parser::parsePatternTupleElement() {
   // If this element has a label, parse it.
-  Identifier Label;
-  SourceLoc LabelLoc;
+  DeclName Label;
+  DeclNameLoc LabelLoc;
 
   // If the tuple element has a label, parse it.
-  if (Tok.is(tok::identifier) && peekToken().is(tok::colon)) {
-    LabelLoc = consumeIdentifier(&Label);
+  Token following;
+  if ((Tok.is(tok::identifier) && peekToken().is(tok::colon)) ||
+      (canConsumeCompoundDeclName(&following) && following.is(tok::colon))) {
+    Label = parseDeclName(LabelLoc, diag::expected_pattern,
+                          DeclNameFlag::AllowCompoundNames);
     consumeToken(tok::colon);
   }
 

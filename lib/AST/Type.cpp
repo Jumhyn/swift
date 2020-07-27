@@ -2735,8 +2735,7 @@ Type TupleType::getElementType(unsigned ElementNo) const {
 /// return the field index, otherwise return -1.
 int TupleType::getNamedElementId(DeclName N) const {
   for (unsigned i = 0, e = Bits.TupleType.Count; i != e; ++i) {
-    if (getTrailingObjects<TupleTypeElt>()[i].getName().getBaseName() ==
-        N.getBaseName())
+    if (getTrailingObjects<TupleTypeElt>()[i].getName() == N)
       return i;
   }
 

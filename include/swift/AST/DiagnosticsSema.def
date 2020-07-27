@@ -240,7 +240,7 @@ ERROR(cannot_pass_rvalue_inout,none,
       "cannot pass immutable value of type %0 as inout argument",
       (Type))
 ERROR(cannot_provide_default_value_inout,none,
-      "cannot provide default value to inout parameter %0", (Identifier))
+      "cannot provide default value to inout parameter %0", (DeclName))
 
 ERROR(cannot_call_with_params, none,
       "cannot invoke %select{|initializer for type }2'%0' with an argument list"
@@ -1117,7 +1117,7 @@ ERROR(cannot_pass_inout_arg_to_subscript,none,
 ERROR(incorrect_property_wrapper_reference,none,
       "cannot convert value %0 of type %1 to expected type %2, "
       "use %select{wrapper|wrapped value}3 instead",
-      (Identifier, Type, Type, bool))
+      (DeclName, Type, Type, bool))
 ERROR(incorrect_property_wrapper_reference_member,none,
       "referencing %0 %1 requires %select{wrapper|wrapped value of type}2 %3",
       (DescriptiveDeclKind, DeclName, bool, Type))
@@ -3897,7 +3897,7 @@ NOTE(enum_element_pattern_assoc_values_remove,none,
 ERROR(tuple_pattern_length_mismatch,none,
       "tuple pattern has the wrong length for tuple type %0", (Type))
 ERROR(tuple_pattern_label_mismatch,none,
-      "tuple pattern element label %0 must be %1", (Identifier, DeclName))
+      "tuple pattern element label %0 must be %1", (DeclName, DeclName))
 ERROR(enum_element_pattern_member_not_found,none,
       "enum case %0 not found in type %1", (DeclNameRef, Type))
 ERROR(optional_element_pattern_not_valid_type,none,
@@ -4915,10 +4915,10 @@ WARNING(observe_keypath_property_not_objc_dynamic, none,
 WARNING(default_magic_identifier_mismatch, none,
         "parameter %0 with default argument '%1' passed to parameter %2, whose "
         "default argument is '%3'",
-        (Identifier, StringRef, Identifier, StringRef))
+        (DeclName, StringRef, DeclName, StringRef))
 NOTE(change_caller_default_to_match_callee, none,
      "did you mean for parameter %0 to default to '%1'?",
-     (Identifier, StringRef))
+     (DeclName, StringRef))
 NOTE(silence_default_magic_identifier_mismatch, none,
      "add parentheses to silence this warning", ())
 

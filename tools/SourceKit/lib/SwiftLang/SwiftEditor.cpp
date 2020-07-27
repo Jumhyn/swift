@@ -1527,8 +1527,9 @@ private:
           CharSourceRange TR;
           auto name = ArgElt.Name;
           if (!name.empty()) {
-            NR = CharSourceRange(SM, ArgElt.NameLoc.getStartLoc(),
-                                 ArgElt.NameLoc.getEndLoc());
+            llvm::SmallString<16> scratch;
+            NR = CharSourceRange(ArgElt.NameLoc.getStartLoc(),
+                                 name.getString(scratch).length());
           }
           SourceLoc SRE = Lexer::getLocForEndOfToken(SM,
                                                   ArgElt.Type->getEndLoc());

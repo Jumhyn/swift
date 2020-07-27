@@ -712,7 +712,9 @@ bool AbstractFunctionDecl::isTransparent() const {
 
 bool ParameterList::hasInternalParameter(StringRef Prefix) const {
   for (auto param : *this) {
-    if (param->hasName() && param->getBaseName().str().startswith(Prefix))
+    llvm::SmallString<16> scratch;
+    auto nameStr = param->getName().getString(scratch);
+    if (param->hasName() && nameStr.startswith(Prefix))
       return true;
     auto argName = param->getArgumentName();
     if (!argName.empty() && argName.str().startswith(Prefix))
@@ -3918,7 +3920,7 @@ SourceRange TypeAliasDecl::getSourceRange() const {
     return { TypeAliasLoc, UnderlyingTy.getSourceRange().End };
   if (TypeEndLoc.isValid())
     return { TypeAliasLoc, TypeEndLoc };
-  return { TypeAliasLoc, getStartLoc() };
+  return { TypeAliasLoc, getEndLoc() };
 }
 
 Type TypeAliasDecl::getUnderlyingType() const {
@@ -4005,7 +4007,7 @@ GenericTypeParamDecl::GenericTypeParamDecl(DeclContext *dc, Identifier name,
 }
 
 SourceRange GenericTypeParamDecl::getSourceRange() const {
-  SourceLoc endLoc = getStartLoc();
+  SourceLoc endLoc = getEndLoc();
 
   if (!getInherited().empty()) {
     endLoc = getInherited().back().getSourceRange().End;
@@ -4049,7 +4051,7 @@ SourceRange AssociatedTypeDecl::getSourceRange() const {
   } else if (!getInherited().empty()) {
     endLoc = getInherited().back().getSourceRange().End;
   } else {
-    endLoc = getStartLoc();
+    endLoc = getEndLoc();
   }
   return SourceRange(KeywordLoc, endLoc);
 }
@@ -5914,10 +5916,11 @@ void ParamDecl::setSpecifier(Specifier specifier) {
 
 bool ParamDecl::isAnonClosureParam() const {
   auto name = getName();
-  if (name.getBaseIdentifier().empty())
+  if (name.empty())
     return false;
 
-  auto nameStr = name.getBaseIdentifier().str();
+  llvm::SmallString<16> scratch;
+  auto nameStr = name.getString(scratch);
   if (nameStr.empty())
     return false;
 
@@ -6099,6 +6102,7 @@ Identifier VarDecl::getObjCPropertyName() const {
       return name->getSelectorPieces()[0];
   }
 
+  assert(getName().isSimpleName());
   return getName().getBaseIdentifier();
 }
 
@@ -6237,13 +6241,13 @@ Type DeclContext::getSelfInterfaceType() const {
 /// Return the full source range of this parameter.
 SourceRange ParamDecl::getSourceRange() const {
   SourceLoc APINameLoc = getArgumentNameLoc();
-  SourceLoc nameLoc = getParameterNameLoc().getBaseNameLoc();
+  DeclNameLoc nameLoc = getParameterNameLoc();
 
   SourceLoc startLoc;
   if (APINameLoc.isValid())
     startLoc = APINameLoc;
   else if (nameLoc.isValid())
-    startLoc = nameLoc;
+    startLoc = nameLoc.getStartLoc();
   else if (auto *repr = getTypeRepr())
     startLoc = repr->getStartLoc();
 
@@ -6268,7 +6272,7 @@ SourceRange ParamDecl::getSourceRange() const {
 
   // The name has a location we can use.
   if (nameLoc.isValid())
-    return SourceRange(startLoc, nameLoc);
+    return SourceRange(startLoc, nameLoc.getEndLoc());
 
   return startLoc;
 }
@@ -7454,9 +7458,9 @@ ConstructorDecl::ConstructorDecl(DeclName Name, SourceLoc ConstructorLoc,
                                  ParameterList *BodyParams,
                                  GenericParamList *GenericParams,
                                  DeclContext *Parent)
-  : AbstractFunctionDecl(DeclKind::Constructor, Parent, Name,
-                         DeclNameLoc(ConstructorLoc), Throws, ThrowsLoc,
-                         /*HasImplicitSelfDecl=*/true, GenericParams),
+  : AbstractFunctionDecl(DeclKind::Constructor, Parent, Name, ConstructorLoc,
+                         Throws, ThrowsLoc, /*HasImplicitSelfDecl=*/true,
+                         GenericParams),
     FailabilityLoc(FailabilityLoc),
     SelfDecl(nullptr)
 {
@@ -7485,8 +7489,7 @@ bool ConstructorDecl::isObjCZeroParameterWithLongSelector() const {
 
 DestructorDecl::DestructorDecl(SourceLoc DestructorLoc, DeclContext *Parent)
   : AbstractFunctionDecl(DeclKind::Destructor, Parent,
-                         DeclBaseName::createDestructor(),
-                         DeclNameLoc(DestructorLoc),
+                         DeclBaseName::createDestructor(), DestructorLoc,
                          /*Throws=*/false,
                          /*ThrowsLoc=*/SourceLoc(),
                          /*HasImplicitSelfDecl=*/true,
@@ -7556,7 +7559,7 @@ SourceRange EnumElementDecl::getSourceRange() const {
     return {getStartLoc(), RawValueExpr->getEndLoc()};
   if (auto *PL = getParameterList())
     return {getStartLoc(), PL->getSourceRange().End};
-  return {getStartLoc(), getStartLoc()};
+  return {getStartLoc(), getEndLoc()};
 }
 
 Type EnumElementDecl::getArgumentInterfaceType() const {

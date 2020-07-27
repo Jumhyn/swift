@@ -2505,7 +2505,7 @@ public:
       return;
 
     const DeclName Name = VD->getName();
-    assert(!Name.getBaseIdentifier().empty() && "name should not be empty");
+    assert(!Name.empty() && "name should not be empty");
 
     CommandWordsPairs Pairs;
     CodeCompletionResultBuilder Builder(
@@ -3630,8 +3630,7 @@ public:
           SemanticContextKind::CurrentNominal, expectedTypeContext);
       addLeadingDot(Builder);
       if (TupleElt.hasName()) {
-        SmallString<16> scratch;
-        Builder.addBaseName(TupleElt.getName().getString(scratch));
+        Builder.addBaseName(TupleElt.getName().getBaseIdentifier().str());
       } else {
         llvm::SmallString<4> IndexStr;
         {

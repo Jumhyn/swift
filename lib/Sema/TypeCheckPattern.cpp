@@ -387,8 +387,8 @@ public:
 
     for (unsigned i = 0, e = E->getNumElements(); i != e; ++i) {
       Pattern *pattern = getSubExprPattern(E->getElement(i));
-      patternElts.push_back(TuplePatternElt(E->getElementName(i).getBaseIdentifier(),
-                                            E->getElementNameLoc(i).getBaseNameLoc(),
+      patternElts.push_back(TuplePatternElt(E->getElementName(i),
+                                            E->getElementNameLoc(i),
                                             pattern));
     }
 
@@ -1525,7 +1525,7 @@ Pattern *TypeChecker::coercePatternToType(ContextualPattern pattern,
       if (auto *TTy = dyn_cast<TupleType>(elementType.getPointer())) {
         for (auto &elt : TTy->getElements()) {
           auto *subPattern = AnyPattern::createImplicit(Context);
-          elements.push_back(TuplePatternElt(elt.getName().getBaseIdentifier(), SourceLoc(),
+          elements.push_back(TuplePatternElt(elt.getName(), DeclNameLoc(),
                                              subPattern));
         }
       } else {
@@ -1534,7 +1534,7 @@ Pattern *TypeChecker::coercePatternToType(ContextualPattern pattern,
         (void)parenTy;
         
         auto *subPattern = AnyPattern::createImplicit(Context);
-        elements.push_back(TuplePatternElt(Identifier(), SourceLoc(),
+        elements.push_back(TuplePatternElt(DeclName(), DeclNameLoc(),
                                            subPattern));
       }
       Pattern *sub = TuplePattern::createSimple(Context, SourceLoc(),

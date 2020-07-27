@@ -5791,8 +5791,9 @@ Parser::parseDeclVarGetSet(Pattern *pattern, ParseDeclOptions Flags,
   if (!isa<TypedPattern>(pattern)) {
     if (accessors.Get || accessors.Set || accessors.Address ||
         accessors.MutableAddress) {
+      llvm::SmallString<16> scratch;
       SourceLoc locAfterPattern = pattern->getLoc().getAdvancedLoc(
-        pattern->getBoundName().getLength());
+        pattern->getBoundName().getString(scratch).size());
       diagnose(pattern->getLoc(), diag::computed_property_missing_type)
         .fixItInsert(locAfterPattern, ": <# Type #>");
       Invalid = true;

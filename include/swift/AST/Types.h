@@ -2055,7 +2055,7 @@ public:
   TupleTypeElt(Type ty, DeclName name = DeclName(),
                ParameterTypeFlags fl = {});
   
-  bool hasName() const { return !Name.getBaseName().empty(); }
+  bool hasName() const { return !Name.empty(); }
   DeclName getName() const { return Name; }
   
   Type getRawType() const { return ElementType; }

@@ -500,7 +500,7 @@ CharSourceRange parameterNameRangeOfCallArg(const TupleExpr *TE,
       DeclName Name = TE->getElementName(i);
       if (NL.isValid() && !Name.empty()) {
         SmallString<16> scratch;
-        return CharSourceRange(NL.getBaseNameLoc(),
+        return CharSourceRange(NL.getStartLoc(),
                                Name.getString(scratch).size());
       }
 
@@ -917,7 +917,7 @@ bool ModelASTWalker::walkToDeclPre(Decl *D) {
     SN.Kind = syntaxStructureKindFromNominalTypeDecl(NTD);
     SN.Range = charSourceRangeFromSourceRange(SM, NTD->getSourceRange());
     SN.BodyRange = innerCharSourceRangeFromSourceRange(SM, NTD->getBraces());
-    SourceLoc NRStart = NTD->getNameLoc().getBaseNameLoc();
+    SourceLoc NRStart = NTD->getNameLoc();
     SourceLoc NREnd = NRStart.getAdvancedLoc(NTD->getName().getLength());
     SN.NameRange = CharSourceRange(SM, NRStart, NREnd);
 
@@ -992,7 +992,7 @@ bool ModelASTWalker::walkToDeclPre(Decl *D) {
     auto bracesRange = VD->getBracesRange();
     if (bracesRange.isValid())
       SN.BodyRange = innerCharSourceRangeFromSourceRange(SM, bracesRange);
-    SourceLoc NRStart = VD->getNameLoc().getBaseNameLoc();
+    SourceLoc NRStart = VD->getNameLoc().getStartLoc();
     SourceLoc NREnd = VD->getNameLoc().getEndLoc().getAdvancedLoc(1);
     SN.NameRange = CharSourceRange(SM, NRStart, NREnd);
     SN.TypeRange = charSourceRangeFromSourceRange(SM,

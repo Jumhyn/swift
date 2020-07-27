@@ -143,8 +143,7 @@ deriveBodyMathOperator(AbstractFunctionDecl *funcDecl, MathOperator op) {
     auto *rhsArg = new (C) MemberRefExpr(rhsDRE, SourceLoc(), member,
                                          DeclNameLoc(), /*Implicit*/ true);
     auto *memberOpArgs =
-        TupleExpr::create(C, SourceLoc(), {lhsArg, rhsArg},
-                          SmallVector<DeclName, 2>(), {}, SourceLoc(),
+        TupleExpr::create(C, SourceLoc(), {lhsArg, rhsArg}, {}, {}, SourceLoc(),
                           /*HasTrailingClosure*/ false,
                           /*Implicit*/ true);
     auto *memberOpCallExpr =
@@ -156,8 +155,9 @@ deriveBodyMathOperator(AbstractFunctionDecl *funcDecl, MathOperator op) {
   llvm::SmallVector<Expr *, 2> memberOpExprs;
   llvm::SmallVector<Identifier, 2> memberNames;
   for (auto member : nominal->getStoredProperties()) {
+    // TODO: Handle compound names
     memberOpExprs.push_back(createMemberOpExpr(member));
-    memberNames.push_back(member->getBaseName());
+    memberNames.push_back(member->getBaseIdentifier());
   }
   // Call memberwise initializer with member operator call expressions.
   auto *callExpr =
@@ -178,7 +178,7 @@ static ValueDecl *deriveMathOperator(DerivedConformance &derived,
   // Create parameter declaration with the given name and type.
   auto createParamDecl = [&](StringRef name, Type type) -> ParamDecl * {
     auto *param =
-        new (C) ParamDecl(SourceLoc(), SourceLoc(), Identifier(), SourceLoc(),
+        new (C) ParamDecl(SourceLoc(), SourceLoc(), Identifier(), DeclNameLoc(),
                           C.getIdentifier(name), parentDC);
     param->setSpecifier(ParamDecl::Specifier::Default);
     param->setInterfaceType(type);
@@ -270,7 +270,7 @@ deriveBodyPropertyGetter(AbstractFunctionDecl *funcDecl, ProtocolDecl *proto,
   llvm::SmallVector<Identifier, 2> memberNames;
   for (auto member : nominal->getStoredProperties()) {
     memberPropExprs.push_back(createMemberPropertyExpr(member));
-    memberNames.push_back(member->getBaseName());
+    memberNames.push_back(member->getBaseIdentifier());
   }
   // Call memberwise initializer with member property expressions.
   auto *callExpr =

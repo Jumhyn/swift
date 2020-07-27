@@ -744,6 +744,7 @@ bool SemaAnnotator::passCallArgNames(Expr *Fn, TupleExpr *TupleE) {
   ArrayRef<DeclName> ArgNames = TupleE->getElementNames();
   ArrayRef<DeclNameLoc> ArgLocs = TupleE->getElementNameLocs();
   for (auto i : indices(ArgNames)) {
+    assert(ArgNames[i].isSimpleName() && "Arg label cannot be compound name");
     Identifier Name = ArgNames[i].getBaseIdentifier();
     if (Name.empty())
       continue;
