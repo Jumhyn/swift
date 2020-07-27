@@ -2743,6 +2743,15 @@ int TupleType::getNamedElementId(DeclName N) const {
   return -1;
 }
 
+void TupleType::lookupElementsByBaseName(DeclBaseName N,
+                                         SmallVectorImpl<int> &indices) const {
+  assert(indices.empty() && "Indices should be empty before lookup");
+  for (unsigned i = 0, e = Bits.TupleType.Count; i != e; ++i) {
+    if (getTrailingObjects<TupleTypeElt>()[i].getName().getBaseName() == N)
+      indices.push_back(i);
+  }
+}
+
 ArchetypeType::ArchetypeType(TypeKind Kind,
                              const ASTContext &Ctx,
                              RecursiveTypeProperties properties,

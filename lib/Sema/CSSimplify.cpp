@@ -6019,21 +6019,23 @@ performMemberLookup(ConstraintKind constraintKind, DeclNameRef memberName,
   if (auto baseTuple = baseObjTy->getAs<TupleType>()) {
     SmallString<16> scratch;
     StringRef nameStr = memberName.getString(scratch);
-    int fieldIdx = -1;
     // Resolve a number reference into the tuple type.
     unsigned Value = 0;
     if (!nameStr.getAsInteger(10, Value) &&
         Value < baseTuple->getNumElements()) {
-      fieldIdx = Value;
+      // Add an overload set that selects this field.
+      result.ViableCandidates.push_back(OverloadChoice(baseTy, Value));
+    } else if (memberName.getFullName().isSimpleName()) {
+      SmallVector<int, 2> indices;
+      baseTuple->lookupElementsByBaseName(memberName.getBaseName(), indices);
+      for (int index : indices)
+        result.ViableCandidates.push_back(OverloadChoice(baseTy, index));
     } else {
-      fieldIdx = baseTuple->getNamedElementId(memberName.getFullName());
+      int fieldIdx = baseTuple->getNamedElementId(memberName.getFullName());
+      if (fieldIdx != -1)
+        result.ViableCandidates.push_back(OverloadChoice(baseTy, fieldIdx));
     }
-    
-    if (fieldIdx == -1)
-      return result;    // No result.
-    
-    // Add an overload set that selects this field.
-    result.ViableCandidates.push_back(OverloadChoice(baseTy, fieldIdx));
+
     return result;
   }
 

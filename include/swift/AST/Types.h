@@ -2134,7 +2134,13 @@ public:
   
   /// getNamedElementId - If this tuple has an element with the specified name,
   /// return the element index, otherwise return -1.
-  int getNamedElementId(DeclName I) const;
+  int getNamedElementId(DeclName N) const;
+
+  /// Since tuple elements can have compound names, we may have to lookup
+  /// just a base name within a tuple, which may match multiple different
+  /// members with different argument labels.
+  void lookupElementsByBaseName(DeclBaseName N,
+                                SmallVectorImpl<int> &indices) const;
   
   /// Returns true if this tuple has inout, __shared or __owned elements.
   bool hasElementWithOwnership() const {

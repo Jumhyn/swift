@@ -658,6 +658,7 @@ bool DisjunctionStep::shortCircuitDisjunctionAt(
   // If we have a SIMD operator, and the prior choice was not a SIMD
   // Operator, we're done.
   if (currentChoice->getKind() == ConstraintKind::BindOverload &&
+      currentChoice->getOverloadChoice().isDecl() &&
       isSIMDOperator(currentChoice->getOverloadChoice().getDecl()) &&
       lastSuccessfulChoice->getKind() == ConstraintKind::BindOverload &&
       !isSIMDOperator(lastSuccessfulChoice->getOverloadChoice().getDecl()) &&
