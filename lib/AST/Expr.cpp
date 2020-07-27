@@ -1360,14 +1360,15 @@ TupleExpr *TupleExpr::create(ASTContext &ctx,
                              ArrayRef<SourceLoc> ElementNameLocs,
                              SourceLoc RParenLoc, bool HasTrailingClosure,
                              bool Implicit, Type Ty) {
-  assert(ElementNames.size() == ElementNameLocs.size());
-
   SmallVector<DeclName, 2> names;
   SmallVector<DeclNameLoc, 2> locs;
 
-  for (size_t i = 0; i < ElementNames.size(); i++) {
-    names.push_back(ElementNames[i]);
-    locs.push_back(DeclNameLoc(ElementNameLocs[i]));
+  for (auto name : ElementNames) {
+    names.push_back(name);
+  }
+
+  for (auto loc : ElementNameLocs) {
+    locs.push_back(DeclNameLoc(loc));
   }
 
   return create(ctx, LParenLoc, SubExprs, names, locs, RParenLoc,

@@ -2892,10 +2892,6 @@ public:
 
     Param withType(Type newType) const { return Param(newType, Label, Flags); }
 
-    Param withLabel(Identifier newLabel) const {
-      return Param(Ty, newLabel, Flags);
-    }
-
     Param withFlags(ParameterTypeFlags flags) const {
       return Param(Ty, Label, flags);
     }

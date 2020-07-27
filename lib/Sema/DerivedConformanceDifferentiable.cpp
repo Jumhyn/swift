@@ -425,8 +425,10 @@ deriveBodyDifferentiable_zeroTangentVectorInitializer(
   // Create `self.<member>.zeroTangentVectorInitializer` capture list entry.
   auto createMemberZeroTanInitCaptureListEntry =
       [&](VarDecl *member) -> CaptureListEntry {
+    llvm::SmallString<16> scratch;
+    auto nameStr = member->getNameStr(scratch);
     // Create `<member>_zeroTangentVectorInitializer` capture var declaration.
-    auto memberCaptureName = C.getIdentifier(std::string(member->getNameStr()) +
+    auto memberCaptureName = C.getIdentifier(std::string(nameStr) +
                                              "_zeroTangentVectorInitializer");
     auto *memberZeroTanInitCaptureDecl = new (C) VarDecl(
         /*isStatic*/ false, VarDecl::Introducer::Let, /*isCaptureList*/ true,

@@ -83,8 +83,11 @@ static bool isKeyPathCurriedThunkCallExpr(Expr *E) {
   auto thunk = dyn_cast<AutoClosureExpr>(CE->getFn());
   if (!thunk)
     return false;
-  if (thunk->getParameters()->size() != 1 ||
-      thunk->getParameters()->get(0)->getParameterName().str() != "$kp$")
+  if (thunk->getParameters()->size() != 1)
+      return false;
+  auto param = thunk->getParameters()->get(0);
+  if (!param->getParameterName().isSimpleName() ||
+      param->getParameterName().getBaseIdentifier().str() != "$kp$")
     return false;
 
   auto PE = dyn_cast<ParenExpr>(CE->getArg());
@@ -577,8 +580,8 @@ TypeChecker::getTypeOfCompletionOperator(DeclContext *DC, Expr *LHS,
     //     (code_completion_expr)))
     CodeCompletionExpr dummyRHS(Loc);
     auto Args = TupleExpr::create(
-        DC->getASTContext(), SourceLoc(), {LHS, &dummyRHS}, {}, {}, SourceLoc(),
-        /*hasTrailingClosure=*/false, /*isImplicit=*/true);
+        DC->getASTContext(), SourceLoc(), {LHS, &dummyRHS}, DeclName(), {},
+        SourceLoc(), /*hasTrailingClosure=*/false, /*isImplicit=*/true);
     BinaryExpr binaryExpr(opExpr, Args, /*isImplicit=*/true);
 
     return getTypeOfCompletionOperatorImpl(DC, &binaryExpr,

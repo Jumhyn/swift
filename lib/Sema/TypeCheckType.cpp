@@ -3479,7 +3479,7 @@ Type TypeResolver::resolveTupleType(TupleTypeRepr *repr,
         for (size_t i = 0; i < origParams.size(); i++)
           params.push_back(origParams[i].withLabel(names[i]));
 
-        ty = FunctionType::get(params, fnTy->getResult());  
+        ty = NeverNullType(FunctionType::get(params, fnTy->getResult()));  
       }
     }
 
