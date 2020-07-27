@@ -1075,6 +1075,26 @@ Pattern *TypeChecker::coercePatternToType(ContextualPattern pattern,
     // sufficiently requestified.
     TypeChecker::checkForForbiddenPrefix(Context, var->getBaseName());
 
+    // If the decl has a compound name, the number of labels must match the
+    // number of arguments.
+    if (var->getName().isCompoundName()) {
+      if (auto fnTy = var->getType()->getAs<AnyFunctionType>()) {
+        auto argNames = var->getName().getArgumentNames();
+        if (argNames.size() != fnTy->getParams().size()) {
+          diags.diagnose(var->getNameLoc().getBaseNameLoc(),
+                         diag::decl_compound_name_function_num_params,
+                         var->getName(), var->getType());
+          return nullptr;
+        }
+      }
+      else {
+        diags.diagnose(var->getNameLoc().getBaseNameLoc(),
+                       diag::decl_compound_name_function_type,
+                       var->getName(), var->getType());
+        return nullptr;
+      }
+    }
+
     // If we are inferring a variable to have type AnyObject.Type,
     // "()", "[()]", an uninhabited type, or optional thereof, emit a diagnostic.
     // They are probably missing a cast or didn't mean to bind to a variable.
