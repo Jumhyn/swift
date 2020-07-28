@@ -1078,19 +1078,19 @@ Pattern *TypeChecker::coercePatternToType(ContextualPattern pattern,
     // If the decl has a compound name, the number of labels must match the
     // number of arguments.
     if (var->getName().isCompoundName()) {
-      if (auto fnTy = var->getType()->getAs<AnyFunctionType>()) {
+      if (auto fnTy = type->getAs<AnyFunctionType>()) {
         auto argNames = var->getName().getArgumentNames();
         if (argNames.size() != fnTy->getParams().size()) {
           diags.diagnose(var->getNameLoc().getBaseNameLoc(),
                          diag::decl_compound_name_function_num_params,
-                         var->getName(), var->getType());
+                         var->getName(), type);
           return nullptr;
         }
       }
       else {
         diags.diagnose(var->getNameLoc().getBaseNameLoc(),
                        diag::decl_compound_name_function_type,
-                       var->getName(), var->getType());
+                       var->getName(), type);
         return nullptr;
       }
     }
