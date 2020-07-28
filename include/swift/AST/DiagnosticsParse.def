@@ -902,6 +902,10 @@ WARNING(parameter_extraneous_double_up,none,
 ERROR(parameter_operator_keyword_argument,none,
       "%select{operator|closure|enum case}0 cannot have keyword arguments",
       (unsigned))
+ERROR(external_parameter_label_compound_name,none,
+      "%select{function|initializer|subscript|enum case}0 cannot have argument "
+      "with an external label that is compound",
+      (unsigned))
 
 ERROR(parameter_unnamed,none,
       "unnamed parameters must be written with the empty name '_'", ())

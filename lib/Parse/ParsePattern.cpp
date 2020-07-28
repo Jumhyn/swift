@@ -148,11 +148,20 @@ static bool startsParameterName(Parser &parser, bool isClosure) {
     return true;
 
   // To have a parameter name here, we need a name.
+  Token nextTok;
   if (!parser.Tok.canBeArgumentLabel())
     return false;
+  else {
+    Token following;
+    // If we have a compound name, consider the token after the *full* name,
+    // rather than the very next token.
+    if (parser.canConsumeCompoundDeclName(&following))
+      nextTok = following;
+    else
+      nextTok = parser.peekToken();
+  }
 
   // If the next token can be an argument label or is ':', this is a name.
-  const auto &nextTok = parser.peekToken();
   if (nextTok.is(tok::colon) || nextTok.canBeArgumentLabel())
     return true;
 
@@ -318,6 +327,63 @@ Parser::parseParameterClause(SourceLoc &leftParenLoc,
         param.FirstNameLoc = param.SecondNameLoc;
         param.SecondName = Identifier();
         param.SecondNameLoc = DeclNameLoc();
+      }
+
+      // The API name can never be a compound name.
+      if (paramContext == ParameterContextKind::EnumElement ||
+          (paramContext == ParameterContextKind::Subscript &&
+           param.SecondNameLoc.isValid()) ||
+          paramContext == ParameterContextKind::Function ||
+          paramContext == ParameterContextKind::Initializer) {
+        if (param.FirstName.isCompoundName()) {
+          enum CompoundArgumentLabelDiagnosticContextKind {
+            Function    = 0,
+            Initializer = 1,
+            Subscript   = 2,
+            EnumElement = 3,
+          } diagContextKind;
+
+          switch (paramContext) {
+          case ParameterContextKind::Function:
+            diagContextKind = Function;
+            break;
+          case ParameterContextKind::Initializer:
+            diagContextKind = Initializer;
+            break;
+          case ParameterContextKind::Subscript:
+            diagContextKind = Subscript;
+            break;
+          case ParameterContextKind::EnumElement:
+            diagContextKind = EnumElement;
+            break;
+          default:
+            llvm_unreachable("Unhandled parameter context kind!");
+          }
+
+          auto diag = diagnose(param.FirstNameLoc.getBaseNameLoc(),
+                               diag::external_parameter_label_compound_name,
+                               unsigned(diagContextKind));
+          if ((paramContext == ParameterContextKind::Function ||
+               paramContext == ParameterContextKind::Initializer) &&
+              param.SecondNameLoc.isInvalid()) {
+            // If this is a function or initializer with no internal name,
+            // preserve the compound name for internal use.
+            SmallString<16> scratch;
+            diag.fixItReplaceChars(param.FirstNameLoc.getLParenLoc(),
+                                   param.FirstNameLoc.getRParenLoc(),
+                                " " + param.FirstName.getString(scratch).str());
+
+            param.SecondName = param.FirstName;
+            param.SecondNameLoc = param.FirstNameLoc;
+          } else {
+            // Otherwise just remove the argument labels from the name.
+            diag.fixItRemoveChars(param.FirstNameLoc.getLParenLoc(),
+                              param.FirstNameLoc.getRParenLoc());
+          }
+
+          param.FirstName = param.FirstName.getBaseName();
+          param.FirstNameLoc = DeclNameLoc(param.FirstNameLoc.getBaseNameLoc());
+        }
       }
 
       // (':' type)?
