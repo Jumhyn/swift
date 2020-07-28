@@ -6325,6 +6325,12 @@ AnyFunctionType::Param ParamDecl::toFunctionParam(Type type) const {
   if (isVariadic())
     type = ParamDecl::getVarargBaseTy(type);
 
+  // If this ParamDecl has argument labels as part of its internal name, they
+  // should not be reflected in the external type.
+  if (getName().isCompoundName())
+    if (auto fnTy = type->getAs<AnyFunctionType>())
+      type = fnTy->removeArgumentLabels(1);
+
   auto label = getArgumentName();
   auto flags = ParameterTypeFlags::fromParameterType(
       type, isVariadic(), isAutoClosure(), isNonEphemeral(),
