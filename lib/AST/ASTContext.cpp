@@ -2950,6 +2950,22 @@ AnyFunctionType *AnyFunctionType::withExtInfo(ExtInfo info) const {
                                   getParams(), getResult(), info);
 }
 
+AnyFunctionType *AnyFunctionType::withArgLabels(
+    ArrayRef<Identifier> argLabels) const {
+  assert(getParams().size() == argLabels.size());
+  SmallVector<AnyFunctionType::Param, 4> newParams;
+  for (unsigned i = 0; i < getNumParams(); ++i) {
+    newParams.push_back(getParams()[i].withLabel(argLabels[i]));
+  }
+  if (const_cast<AnyFunctionType *>(this)->is<FunctionType>())
+    return FunctionType::get(newParams, getResult());
+  else if (const_cast<AnyFunctionType *>(this)->is<GenericFunctionType>())
+    return GenericFunctionType::get(getOptGenericSignature(), newParams,
+                                    getResult());
+  else
+    assert(false && "Unhandled function type");
+}
+
 void AnyFunctionType::decomposeInput(
     Type type, SmallVectorImpl<AnyFunctionType::Param> &result) {
   switch (type->getKind()) {

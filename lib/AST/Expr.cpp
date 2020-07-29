@@ -48,6 +48,8 @@ StringRef swift::getFunctionRefKindStr(FunctionRefKind refKind) {
     return "double";
   case FunctionRefKind::Compound:
     return "compound";
+  case FunctionRefKind::TupleIndex:
+    return "tuple index";
   }
 
   llvm_unreachable("Unhandled FunctionRefKind in switch.");

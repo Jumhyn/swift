@@ -1670,7 +1670,10 @@ public:
         abort();
       }
 
-      checkSameType(resultType, tupleType->getElementType(E->getFieldNumber()),
+      bool applyLabels =
+        E->getFunctionRefKind() == FunctionRefKind::SingleApply;
+      auto eltTy = tupleType->getElementType(E->getFieldNumber(), applyLabels);
+      checkSameType(resultType, eltTy,
                     "TupleElementExpr and the corresponding tuple element");
       verifyCheckedBase(E);
     }

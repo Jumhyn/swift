@@ -7400,6 +7400,9 @@ inline bool ValueDecl::hasCurriedSelf() const {
     return afd->hasImplicitSelfDecl();
   if (isa<EnumElementDecl>(this))
     return true;
+  if (isa<VarDecl>(this))
+    if (getName().isCompoundName() && getDeclContext()->isTypeContext())
+        return true;
   return false;
 }
 
@@ -7411,7 +7414,7 @@ inline bool ValueDecl::hasParameterList() const {
 
 inline unsigned ValueDecl::getNumCurryLevels() const {
   unsigned curryLevels = 0;
-  if (hasParameterList())
+  if (hasParameterList() || getName().isCompoundName())
     curryLevels++;
   if (hasCurriedSelf())
     curryLevels++;

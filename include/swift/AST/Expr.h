@@ -192,21 +192,22 @@ protected:
     LiteralCapacity : 32
   );
 
-  SWIFT_INLINE_BITFIELD(DeclRefExpr, Expr, 2+2,
+  SWIFT_INLINE_BITFIELD(DeclRefExpr, Expr, 2+3,
     Semantics : 2, // an AccessSemantics
-    FunctionRefKind : 2
+    FunctionRefKind : 3
   );
 
-  SWIFT_INLINE_BITFIELD(UnresolvedDeclRefExpr, Expr, 2+2,
+  SWIFT_INLINE_BITFIELD(UnresolvedDeclRefExpr, Expr, 2+3,
     DeclRefKind : 2,
-    FunctionRefKind : 2
+    FunctionRefKind : 3
   );
 
   SWIFT_INLINE_BITFIELD(MemberRefExpr, LookupExpr, 2,
     Semantics : 2 // an AccessSemantics
   );
 
-  SWIFT_INLINE_BITFIELD_FULL(TupleElementExpr, Expr, 32,
+  SWIFT_INLINE_BITFIELD_FULL(TupleElementExpr, Expr, 3+32,
+    FunctionRefKind : 3,
     : NumPadBits,
     FieldNo : 32
   );
@@ -222,8 +223,8 @@ protected:
     NumElements : 32
   );
 
-  SWIFT_INLINE_BITFIELD(UnresolvedDotExpr, Expr, 2,
-    FunctionRefKind : 2
+  SWIFT_INLINE_BITFIELD(UnresolvedDotExpr, Expr, 3,
+    FunctionRefKind : 3
   );
 
   SWIFT_INLINE_BITFIELD_FULL(SubscriptExpr, LookupExpr, 2+1+1+16,
@@ -262,8 +263,8 @@ protected:
     NumArgLabels : 16
   );
 
-  SWIFT_INLINE_BITFIELD(OverloadSetRefExpr, Expr, 2,
-    FunctionRefKind : 2
+  SWIFT_INLINE_BITFIELD(OverloadSetRefExpr, Expr, 3,
+    FunctionRefKind : 3
   );
 
   SWIFT_INLINE_BITFIELD(BooleanLiteralExpr, LiteralExpr, 1,
@@ -2645,9 +2646,11 @@ class TupleElementExpr : public Expr {
 
 public:
   TupleElementExpr(Expr *SubExpr, SourceLoc DotLoc, unsigned FieldNo,
-                   SourceLoc NameLoc, Type Ty)
+                   SourceLoc NameLoc, Type Ty, FunctionRefKind functionRefKind)
     : Expr(ExprKind::TupleElement, /*Implicit=*/false, Ty), SubExpr(SubExpr),
       NameLoc(NameLoc), DotLoc(DotLoc) {
+    Bits.TupleElementExpr.FunctionRefKind = static_cast<unsigned>(
+                                                               functionRefKind);
     Bits.TupleElementExpr.FieldNo = FieldNo;
   }
 
@@ -2661,6 +2664,16 @@ public:
   
   SourceLoc getStartLoc() const { return getBase()->getStartLoc(); }
   SourceLoc getEndLoc() const { return getNameLoc(); }
+
+  /// Retrieve the kind of function reference.
+  FunctionRefKind getFunctionRefKind() const {
+    return static_cast<FunctionRefKind>(Bits.TupleElementExpr.FunctionRefKind);
+  }
+
+  /// Set the kind of function reference.
+  void setFunctionRefKind(FunctionRefKind refKind) {
+    Bits.TupleElementExpr.FunctionRefKind = static_cast<unsigned>(refKind);
+  }
 
   static bool classof(const Expr *E) {
     return E->getKind() == ExprKind::TupleElement;

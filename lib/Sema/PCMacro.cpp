@@ -603,7 +603,8 @@ public:
                        TupleTypeElt(TupleType::getEmpty(Context))});
     Tup->setType(TupleType::get(TupleTypes, Context));
     TupleElementExpr *GetOne = new (Context)
-        TupleElementExpr(Tup, SourceLoc(), 1, SourceLoc(), E->getType());
+        TupleElementExpr(Tup, SourceLoc(), 1, SourceLoc(), E->getType(),
+                         FunctionRefKind::TupleIndex);
 
     GetOne->setImplicit(true);
 

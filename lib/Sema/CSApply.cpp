@@ -3077,7 +3077,8 @@ namespace {
         return cs.cacheType(new (cs.getASTContext())
                             TupleElementExpr(base, dotLoc,
                                              selected.choice.getTupleIndex(),
-                                             nameLoc.getBaseNameLoc(), toType));
+                                             nameLoc.getBaseNameLoc(), toType,
+                                         selected.choice.getFunctionRefKind()));
       }
 
       case OverloadChoiceKind::KeyPathApplication:

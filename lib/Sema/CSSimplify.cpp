@@ -1342,11 +1342,7 @@ ConstraintSystem::matchTupleTypes(TupleType *tuple1, TupleType *tuple2,
     // Match up the types.
     const auto &elt1 = tuple1->getElement(idx1);
     const auto &elt2 = tuple2->getElement(idx2);
-    auto ty2 = elt2.getType();
-    if (elt2.getName().isCompoundName() && kind == ConstraintKind::Conversion)
-      if (auto *fnTy2 = ty2->getAs<AnyFunctionType>())
-        ty2 = fnTy2->removeArgumentLabels(1);
-    auto result = matchTypes(elt1.getType(), ty2, subKind, subflags,
+    auto result = matchTypes(elt1.getType(), elt2.getType(), subKind, subflags,
                        locator.withPathElement(
                                         LocatorPathElt::TupleElement(idx1)));
     if (result.isFailure())
@@ -6024,16 +6020,19 @@ performMemberLookup(ConstraintKind constraintKind, DeclNameRef memberName,
     if (!nameStr.getAsInteger(10, Value) &&
         Value < baseTuple->getNumElements()) {
       // Add an overload set that selects this field.
-      result.ViableCandidates.push_back(OverloadChoice(baseTy, Value));
+      result.ViableCandidates.push_back(OverloadChoice(baseTy, Value,
+                                                  FunctionRefKind::TupleIndex));
     } else if (memberName.getFullName().isSimpleName()) {
       SmallVector<int, 2> indices;
       baseTuple->lookupElementsByBaseName(memberName.getBaseName(), indices);
       for (int index : indices)
-        result.ViableCandidates.push_back(OverloadChoice(baseTy, index));
+        result.ViableCandidates.push_back(OverloadChoice(baseTy, index,
+                                                         functionRefKind));
     } else {
       int fieldIdx = baseTuple->getNamedElementId(memberName.getFullName());
       if (fieldIdx != -1)
-        result.ViableCandidates.push_back(OverloadChoice(baseTy, fieldIdx));
+        result.ViableCandidates.push_back(OverloadChoice(baseTy, fieldIdx,
+                                                    FunctionRefKind::Compound));
     }
 
     return result;

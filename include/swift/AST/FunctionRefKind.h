@@ -39,6 +39,8 @@ enum class FunctionRefKind : unsigned {
   /// The function was referenced using a compound function name,
   /// e.g., "f(a:b:)".
   Compound,
+  /// The function was referred to by tuple index, e.g., "t.0" or "t.0(x)".
+  TupleIndex,
 };
 
 /// Produce a string describing a function reference kind, for

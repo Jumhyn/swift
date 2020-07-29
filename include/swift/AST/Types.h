@@ -2125,8 +2125,10 @@ public:
     return getTrailingObjects<TupleTypeElt>()[i];
   }
 
-  /// getElementType - Return the type of the specified element.
-  Type getElementType(unsigned ElementNo) const;
+  /// getElementType - Return the type of the specified element. If
+  /// \c applyArgLabels is \c true, the returned function type will adopt the
+  /// argument labels from the tuple element's name.
+  Type getElementType(unsigned ElementNo, bool applyArgLabels = false) const;
 
   TupleEltTypeArrayRef getElementTypes() const {
     return TupleEltTypeArrayRef(getElements());
@@ -3393,6 +3395,10 @@ public:
   /// Returns a new function type exactly like this one but with the ExtInfo
   /// replaced.
   AnyFunctionType *withExtInfo(ExtInfo info) const;
+
+  /// Returns a new function type exactly like this one but with the argument
+  /// labels replaced.
+  AnyFunctionType *withArgLabels(ArrayRef<Identifier> arg) const;
 
   static void printParams(ArrayRef<Param> Params, raw_ostream &OS,
                           const PrintOptions &PO = PrintOptions());

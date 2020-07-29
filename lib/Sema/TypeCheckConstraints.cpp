@@ -807,6 +807,8 @@ namespace {
 
     case FunctionRefKind::Compound:
       return FunctionRefKind::Compound;
+    case FunctionRefKind::TupleIndex:
+      return FunctionRefKind::TupleIndex;
     }
 
     llvm_unreachable("Unhandled FunctionRefKind in switch.");

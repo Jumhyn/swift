@@ -3470,21 +3470,6 @@ Type TypeResolver::resolveTupleType(TupleTypeRepr *repr,
 
     auto eltName = repr->getElementName(i);
 
-    // If the tuple element has a compound name, apply the argument labels to
-    // the element's function type.
-    if (eltName.isCompoundName()) {
-      if (auto *fnTy = ty->getAs<AnyFunctionType>()) {
-        assert(eltName.getArgumentNames().size() == fnTy->getParams().size());
-        SmallVector<AnyFunctionType::Param, 4> params;
-        auto names = eltName.getArgumentNames();
-        auto origParams = fnTy->getParams();
-        for (size_t i = 0; i < origParams.size(); i++)
-          params.push_back(origParams[i].withLabel(names[i]));
-
-        ty = NeverNullType(FunctionType::get(params, fnTy->getResult()));  
-      }
-    }
-
     elements.emplace_back(ty, eltName, ParameterTypeFlags());
 
     if (eltName.empty())

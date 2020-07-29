@@ -1139,8 +1139,9 @@ static unsigned getNumRemovedArgumentLabels(ValueDecl *decl,
   switch (functionRefKind) {
   case FunctionRefKind::Unapplied:
   case FunctionRefKind::Compound:
-    // Always remove argument labels from unapplied references and references
-    // that use a compound name.
+  case FunctionRefKind::TupleIndex:
+    // Always remove argument labels from unapplied references, references that
+    // use a compound name, and references via tuple indexing.
     return numParameterLists;
 
   case FunctionRefKind::SingleApply:
@@ -1244,6 +1245,19 @@ ConstraintSystem::getTypeOfReference(ValueDecl *value,
   Type valueType =
       getUnopenedTypeOfReference(varDecl, Type(), useDC, /*base=*/nullptr,
                                  wantInterfaceType);
+
+  bool shouldRemoveArgLabels = false;
+  if (valueType->is<AnyFunctionType>())
+    shouldRemoveArgLabels = true;
+  else if (auto *lvt = valueType->getAs<LValueType>())
+    shouldRemoveArgLabels = lvt->getObjectType()->is<AnyFunctionType>();
+
+  if (shouldRemoveArgLabels) {
+    auto numLabelsToRemove = getNumRemovedArgumentLabels(varDecl,
+                                           /*isCurriedInstanceReference=*/false,
+                                                         functionRefKind);
+    valueType = valueType->removeArgumentLabels(numLabelsToRemove);
+  }
 
   assert(!valueType->hasUnboundGenericType() &&
          !valueType->hasTypeParameter());
@@ -2427,18 +2441,24 @@ void ConstraintSystem::resolveOverload(ConstraintLocator *locator,
     break;
   }
 
-  case OverloadChoiceKind::TupleIndex:
+  case OverloadChoiceKind::TupleIndex: {
+    // If we are immediately applying the
+    bool applyLabels =
+        choice.getFunctionRefKind() == FunctionRefKind::SingleApply;
     if (auto lvalueTy = choice.getBaseType()->getAs<LValueType>()) {
       // When the base of a tuple lvalue, the member is always an lvalue.
       auto tuple = lvalueTy->getObjectType()->castTo<TupleType>();
-      refType = tuple->getElementType(choice.getTupleIndex())->getRValueType();
+      refType = tuple->getElementType(choice.getTupleIndex(), applyLabels);
+      refType = refType->getRValueType();
       refType = LValueType::get(refType);
     } else {
       // When the base is a tuple rvalue, the member is always an rvalue.
       auto tuple = choice.getBaseType()->castTo<TupleType>();
-      refType = tuple->getElementType(choice.getTupleIndex())->getRValueType();
+      refType = tuple->getElementType(choice.getTupleIndex(), applyLabels);
+      refType = refType->getRValueType();
     }
     break;
+  }
 
   case OverloadChoiceKind::KeyPathApplication: {
     // Key path application looks like a subscript(keyPath: KeyPath<Base, T>).
@@ -2706,6 +2726,7 @@ bool OverloadChoice::isImplicitlyUnwrappedValueOrReturnValue() const {
   switch (getFunctionRefKind()) {
   case FunctionRefKind::Unapplied:
   case FunctionRefKind::Compound:
+  case FunctionRefKind::TupleIndex:
     return false;
   case FunctionRefKind::SingleApply:
   case FunctionRefKind::DoubleApply:
