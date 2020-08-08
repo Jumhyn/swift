@@ -1249,7 +1249,7 @@ synthesizeLazyGetterBody(AccessorDecl *Get, VarDecl *VD, VarDecl *Storage,
 
   // Load the existing storage and store it into the 'tmp1' temporary.
   auto *Tmp1VD = new (Ctx) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Let,
-                                   /*IsCaptureList*/false, SourceLoc(),
+                                   /*IsCaptureList*/false, DeclNameLoc(),
                                    Ctx.getIdentifier("tmp1"), Get);
   Tmp1VD->setInterfaceType(VD->getValueInterfaceType());
   Tmp1VD->setHasNonPatternBindingInit();
@@ -1286,7 +1286,7 @@ synthesizeLazyGetterBody(AccessorDecl *Get, VarDecl *VD, VarDecl *Storage,
 
 
   auto *Tmp2VD = new (Ctx) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Let,
-                                   /*IsCaptureList*/false, SourceLoc(),
+                                   /*IsCaptureList*/false, DeclNameLoc(),
                                    Ctx.getIdentifier("tmp2"),
                                    Get);
   Tmp2VD->setInterfaceType(VD->getValueInterfaceType());
@@ -1561,7 +1561,7 @@ synthesizeObservedSetterBody(AccessorDecl *Set, TargetImpl target,
       }
 
       OldValue = new (Ctx) VarDecl(/*IsStatic*/ false, VarDecl::Introducer::Let,
-                                   /*IsCaptureList*/ false, SourceLoc(),
+                                   /*IsCaptureList*/ false, DeclNameLoc(),
                                    Ctx.getIdentifier("tmp"), Set);
       OldValue->setImplicit();
       OldValue->setInterfaceType(VD->getValueInterfaceType());
@@ -1908,7 +1908,7 @@ static AccessorDecl *createSetterPrototype(AbstractStorageDecl *storage,
                                            AccessorDecl *getter = nullptr) {
   assert(storage->supportsMutation());
 
-  SourceLoc loc = storage->getLoc();
+  DeclNameLoc loc = storage->getNameLoc();
 
   bool isMutating = storage->isSetterMutating();
 
@@ -1925,7 +1925,7 @@ static AccessorDecl *createSetterPrototype(AbstractStorageDecl *storage,
   auto *params = buildIndexForwardingParamList(storage, param, ctx);
 
   auto setter = AccessorDecl::create(
-      ctx, loc, /*AccessorKeywordLoc*/ SourceLoc(),
+      ctx, loc.getBaseNameLoc(), /*AccessorKeywordLoc*/ SourceLoc(),
       AccessorKind::Set, storage,
       /*StaticLoc=*/SourceLoc(), StaticSpellingKind::None,
       /*Throws=*/false, /*ThrowsLoc=*/SourceLoc(),
@@ -2341,14 +2341,17 @@ LazyStoragePropertyRequest::evaluate(Evaluator &evaluator,
   // Create the storage property as an optional of VD's type.
   SmallString<64> NameBuf;
   NameBuf += "$__lazy_storage_$_";
-  NameBuf += VD->getName().str();
+  // TODO: Handle compound names properly
+  SmallString<16> scratch;
+  NameBuf += VD->getNameStr(scratch);
   auto StorageName = Context.getIdentifier(NameBuf);
   auto StorageInterfaceTy = OptionalType::get(VD->getInterfaceType());
   auto StorageTy = OptionalType::get(VD->getType());
 
+  VD->getLoc();
   auto *Storage = new (Context) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Var,
-                                        /*IsCaptureList*/false, VD->getLoc(),
-                                        StorageName,
+                                        /*IsCaptureList*/false,
+                                        VD->getNameLoc(), StorageName,
                                         VD->getDeclContext());
   Storage->setInterfaceType(StorageInterfaceTy);
   Storage->setLazyStorageProperty(true);
@@ -2415,7 +2418,8 @@ static VarDecl *synthesizePropertyWrapperStorageWrapperProperty(
   // Compute the name of the storage type.
   SmallString<64> nameBuf;
   nameBuf = "$";
-  nameBuf += var->getName().str();
+  SmallString<16> scratch;
+  nameBuf += var->getNameStr(scratch);
   Identifier name = ctx.getIdentifier(nameBuf);
 
   // Determine the type of the property.
@@ -2428,7 +2432,7 @@ static VarDecl *synthesizePropertyWrapperStorageWrapperProperty(
   VarDecl *property = new (ctx) VarDecl(/*IsStatic=*/var->isStatic(),
                                         VarDecl::Introducer::Var,
                                         /*IsCaptureList=*/false,
-                                        var->getLoc(),
+                                        var->getNameLoc(),
                                         name, dc);
   property->setInterfaceType(propertyType);
   property->setImplicit();
@@ -2672,7 +2676,8 @@ PropertyWrapperBackingPropertyInfoRequest::evaluate(Evaluator &evaluator,
   ASTContext &ctx = var->getASTContext();
   SmallString<64> nameBuf;
   nameBuf = "_";
-  nameBuf += var->getName().str();
+  SmallString<16> stratch;
+  nameBuf += var->getNameStr(stratch);
   Identifier name = ctx.getIdentifier(nameBuf);
 
   // Determine the type of the storage.
@@ -2684,7 +2689,7 @@ PropertyWrapperBackingPropertyInfoRequest::evaluate(Evaluator &evaluator,
   VarDecl *backingVar = new (ctx) VarDecl(/*IsStatic=*/var->isStatic(),
                                           VarDecl::Introducer::Var,
                                           /*IsCaptureList=*/false,
-                                          var->getLoc(),
+                                          var->getNameLoc(),
                                           name, dc);
   backingVar->setInterfaceType(storageInterfaceType);
   backingVar->setImplicit();

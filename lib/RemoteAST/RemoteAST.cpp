@@ -216,7 +216,8 @@ private:
   /// known to be stored.
   VarDecl *findField(NominalTypeDecl *typeDecl, StringRef memberName) {
     for (auto field : typeDecl->getStoredProperties()) {
-      if (field->getName().str() == memberName)
+      llvm::SmallString<16> scratch;
+      if (field->getName().getString(scratch) == memberName)
         return field;
     }
     return nullptr;

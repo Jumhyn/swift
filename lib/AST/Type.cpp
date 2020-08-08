@@ -775,7 +775,10 @@ Type TypeBase::removeArgumentLabels(unsigned numArgumentLabels) {
   // If there is nothing to remove, don't.
   if (numArgumentLabels == 0) return Type(this);
 
-  auto fnType = castTo<AnyFunctionType>();
+  // Must have a function type or an l-value of a function type.
+  auto fnType = getAs<AnyFunctionType>();
+  if (!fnType)
+    fnType = getAs<LValueType>()->getObjectType()->castTo<AnyFunctionType>();
 
   // Drop argument labels from the input type.
   llvm::SmallVector<AnyFunctionType::Param, 8> unlabeledParams;
@@ -786,13 +789,19 @@ Type TypeBase::removeArgumentLabels(unsigned numArgumentLabels) {
   auto result = fnType->getResult()
                       ->removeArgumentLabels(numArgumentLabels - 1);
 
+  Type outputTy;
   if (auto *genericFnType = dyn_cast<GenericFunctionType>(fnType)) {
-    return GenericFunctionType::get(genericFnType->getGenericSignature(),
-                                    unlabeledParams, result,
-                                    fnType->getExtInfo());
-  }
+    outputTy = GenericFunctionType::get(genericFnType->getGenericSignature(),
+                                        unlabeledParams, result,
+                                        fnType->getExtInfo());
+  } else
+    outputTy = FunctionType::get(unlabeledParams, result, fnType->getExtInfo());
 
-  return FunctionType::get(unlabeledParams, result, fnType->getExtInfo());
+  // Restore l-value-ness.
+  if (is<LValueType>())
+    outputTy = LValueType::get(outputTy);
+
+  return outputTy;
 }
 
 
@@ -2725,16 +2734,36 @@ bool TypeBase::matchesFunctionType(Type other, TypeMatchOptions matchMode,
                                OptionalUnwrapping::None, paramsAndResultMatch);
 }
 
+Type TupleType::getElementType(unsigned ElementNo, bool applyArgLabels) const {
+  auto elt = getTrailingObjects<TupleTypeElt>()[ElementNo];
+  Type eltTy = elt.getType();
+
+  if (applyArgLabels && elt.getName().isCompoundName())
+    if (auto *fnTy = eltTy->getAs<AnyFunctionType>())
+      eltTy = fnTy->withArgLabels(elt.getName().getArgumentNames());
+
+  return eltTy;
+}
+
 /// getNamedElementId - If this tuple has a field with the specified name,
 /// return the field index, otherwise return -1.
-int TupleType::getNamedElementId(Identifier I) const {
+int TupleType::getNamedElementId(DeclName N) const {
   for (unsigned i = 0, e = Bits.TupleType.Count; i != e; ++i) {
-    if (getTrailingObjects<TupleTypeElt>()[i].getName() == I)
+    if (getTrailingObjects<TupleTypeElt>()[i].getName() == N)
       return i;
   }
 
   // Otherwise, name not found.
   return -1;
+}
+
+void TupleType::lookupElementsByBaseName(DeclBaseName N,
+                                         SmallVectorImpl<int> &indices) const {
+  assert(indices.empty() && "Indices should be empty before lookup");
+  for (unsigned i = 0, e = Bits.TupleType.Count; i != e; ++i) {
+    if (getTrailingObjects<TupleTypeElt>()[i].getName().getBaseName() == N)
+      indices.push_back(i);
+  }
 }
 
 ArchetypeType::ArchetypeType(TypeKind Kind,

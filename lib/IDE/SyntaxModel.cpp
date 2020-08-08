@@ -496,10 +496,13 @@ CharSourceRange parameterNameRangeOfCallArg(const TupleExpr *TE,
   unsigned i = 0;
   for (auto E : TE->getElements()) {
     if (E == Arg) {
-      SourceLoc NL = TE->getElementNameLoc(i);
-      Identifier Name = TE->getElementName(i);
-      if (NL.isValid() && !Name.empty())
-        return CharSourceRange(NL, Name.getLength());
+      DeclNameLoc NL = TE->getElementNameLoc(i);
+      DeclName Name = TE->getElementName(i);
+      if (NL.isValid() && !Name.empty()) {
+        SmallString<16> scratch;
+        return CharSourceRange(NL.getStartLoc(),
+                               Name.getString(scratch).size());
+      }
 
       return CharSourceRange();
     }
@@ -989,8 +992,8 @@ bool ModelASTWalker::walkToDeclPre(Decl *D) {
     auto bracesRange = VD->getBracesRange();
     if (bracesRange.isValid())
       SN.BodyRange = innerCharSourceRangeFromSourceRange(SM, bracesRange);
-    SourceLoc NRStart = VD->getNameLoc();
-    SourceLoc NREnd = NRStart.getAdvancedLoc(VD->getName().getLength());
+    SourceLoc NRStart = VD->getNameLoc().getStartLoc();
+    SourceLoc NREnd = VD->getNameLoc().getEndLoc().getAdvancedLoc(1);
     SN.NameRange = CharSourceRange(SM, NRStart, NREnd);
     SN.TypeRange = charSourceRangeFromSourceRange(SM,
                                         VD->getTypeSourceRangeForDiagnostics());
@@ -1057,11 +1060,11 @@ bool ModelASTWalker::walkToDeclPre(Decl *D) {
         SN.Range = charSourceRangeFromSourceRange(SM,
                                                   EnumElemD->getSourceRange());
         if (auto ParamList = EnumElemD->getParameterList()) {
-          SourceRange NameRange = SourceRange(EnumElemD->getNameLoc(),
+          SourceRange NameRange = SourceRange(EnumElemD->getStartLoc(),
                                               ParamList->getSourceRange().End);
           SN.NameRange = charSourceRangeFromSourceRange(SM, NameRange);
         } else {
-          SN.NameRange = CharSourceRange(EnumElemD->getNameLoc(),
+          SN.NameRange = CharSourceRange(EnumElemD->getStartLoc(),
                                          EnumElemD->getBaseIdentifier()
                                            .getLength());
         }
@@ -1082,7 +1085,7 @@ bool ModelASTWalker::walkToDeclPre(Decl *D) {
     SN.Kind = SyntaxStructureKind::TypeAlias;
     SN.Range = charSourceRangeFromSourceRange(SM,
                                               TypeAliasD->getSourceRange());
-    SN.NameRange = CharSourceRange(TypeAliasD->getNameLoc(),
+    SN.NameRange = CharSourceRange(TypeAliasD->getStartLoc(),
                                    TypeAliasD->getName().getLength());
     pushStructureNode(SN, TypeAliasD);
   } else if (auto *SubscriptD = dyn_cast<SubscriptDecl>(D)) {
@@ -1104,7 +1107,7 @@ bool ModelASTWalker::walkToDeclPre(Decl *D) {
     SN.Kind = SyntaxStructureKind::AssociatedType;
     SN.Range = charSourceRangeFromSourceRange(SM,
                                             AssociatedTypeD->getSourceRange());
-    SN.NameRange = CharSourceRange(AssociatedTypeD->getNameLoc(),
+    SN.NameRange = CharSourceRange(AssociatedTypeD->getStartLoc(),
                                    AssociatedTypeD->getName().getLength());
     pushStructureNode(SN, AssociatedTypeD);
   } else if (auto *GenericParamD = dyn_cast<GenericTypeParamDecl>(D)) {
@@ -1113,7 +1116,7 @@ bool ModelASTWalker::walkToDeclPre(Decl *D) {
     SN.Kind = SyntaxStructureKind::GenericTypeParam;
     SN.Range = charSourceRangeFromSourceRange(SM,
                                               GenericParamD->getSourceRange());
-    SN.NameRange = CharSourceRange(GenericParamD->getNameLoc(),
+    SN.NameRange = CharSourceRange(GenericParamD->getStartLoc(),
                                    GenericParamD->getName().getLength());
     for (const TypeLoc &TL : GenericParamD->getInherited()) {
       CharSourceRange TR = charSourceRangeFromSourceRange(SM,

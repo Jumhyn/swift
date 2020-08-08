@@ -455,7 +455,7 @@ DerivedConformance::declareDerivedProperty(Identifier name,
 
   VarDecl *propDecl = new (Context)
       VarDecl(/*IsStatic*/ isStatic, VarDecl::Introducer::Var,
-              /*IsCaptureList*/ false, SourceLoc(), name, parentDC);
+              /*IsCaptureList*/ false, DeclNameLoc(), name, parentDC);
   propDecl->setImplicit();
   propDecl->copyFormalAccessFrom(Nominal, /*sourceIsParentContext*/ true);
   propDecl->setInterfaceType(propertyInterfaceType);
@@ -571,10 +571,11 @@ GuardStmt *DerivedConformance::returnComparisonIfNotEqualGuard(ASTContext &C,
     DeclNameRef(C.Id_LessThanOperator), DeclRefKind::BinaryOperator,
     DeclNameLoc());
   auto ltArgsTuple = TupleExpr::create(C, SourceLoc(),
-                                        { lhsExpr, rhsExpr },
-                                        { }, { }, SourceLoc(),
-                                        /*HasTrailingClosure*/false,
-                                        /*Implicit*/true);
+                                       { lhsExpr, rhsExpr },
+                                       { }, { },
+                                       SourceLoc(),
+                                       /*HasTrailingClosure*/false,
+                                       /*Implicit*/true);
   auto ltExpr = new (C) BinaryExpr(ltFuncExpr, ltArgsTuple, /*Implicit*/true);
   return returnIfNotEqualGuard(C, lhsExpr, rhsExpr, ltExpr);
 }
@@ -609,7 +610,7 @@ DeclRefExpr *DerivedConformance::convertEnumToIndex(SmallVectorImpl<ASTNode> &st
   Type intType = C.getIntDecl()->getDeclaredType();
 
   auto indexVar = new (C) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Var,
-                                  /*IsCaptureList*/false, SourceLoc(),
+                                  /*IsCaptureList*/false, DeclNameLoc(),
                                   C.getIdentifier(indexName),
                                   funcDecl);
   indexVar->setInterfaceType(intType);
@@ -740,7 +741,7 @@ DerivedConformance::enumElementPayloadSubpattern(EnumElementDecl *enumElementDec
       auto letPattern =
           BindingPattern::createImplicit(C, /*isLet*/ true, namedPattern);
       elementPatterns.push_back(TuplePatternElt(tupleElement.getName(),
-                                                SourceLoc(), letPattern));
+                                                DeclNameLoc(), letPattern));
     }
 
     auto pat = TuplePattern::createImplicit(C, elementPatterns);
@@ -780,7 +781,7 @@ VarDecl *DerivedConformance::indexedVarDecl(char prefixChar, int index, Type typ
   auto indexStrRef = StringRef(indexStr.data(), indexStr.size());
 
   auto varDecl = new (C) VarDecl(/*IsStatic*/false, VarDecl::Introducer::Let,
-                                 /*IsCaptureList*/true, SourceLoc(),
+                                 /*IsCaptureList*/true, DeclNameLoc(),
                                  C.getIdentifier(indexStrRef),
                                  varContext);
   varDecl->setInterfaceType(type);

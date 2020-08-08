@@ -2094,6 +2094,26 @@ ParamSpecifierRequest::evaluate(Evaluator &evaluator,
   return ParamSpecifier::Default;
 }
 
+static Type applyFunctionArgumentLabels(DeclName name, Type type) {
+    assert(type->is<FunctionType>());
+    if (auto *fnTy = type->getAs<FunctionType>()) {
+      SmallVector<AnyFunctionType::Param, 4> labeledParams;
+      auto params = fnTy->getParams();
+      auto labels = name.getArgumentNames();
+      size_t i = 0;
+      for (; i < fmin(params.size(), labels.size()); ++i) {
+        auto param = params[i];
+        labeledParams.push_back(param.withLabel(labels[i]));
+      }
+      while (i < params.size()) {
+        labeledParams.push_back(params[i++]);
+      }
+      return FunctionType::get(labeledParams, fnTy->getResult(),
+                               AnyFunctionType::ExtInfo());
+    }
+    return type;
+}
+
 static Type validateParameterType(ParamDecl *decl) {
   auto *dc = decl->getDeclContext();
 
@@ -2150,6 +2170,10 @@ static Type validateParameterType(ParamDecl *decl) {
 
     return Ty;
   }
+
+  if (decl->getName().isCompoundName())
+    return applyFunctionArgumentLabels(decl->getName(), Ty);
+
   return Ty;
 }
 
@@ -2256,6 +2280,10 @@ InterfaceTypeRequest::evaluate(Evaluator &eval, ValueDecl *D) const {
         interfaceType =
             TypeChecker::checkReferenceOwnershipAttr(VD, interfaceType, attr);
     }
+
+    if (VD->getName().isCompoundName())
+      if (interfaceType->is<AnyFunctionType>())
+        return applyFunctionArgumentLabels(VD->getName(), interfaceType);
 
     return interfaceType;
   }

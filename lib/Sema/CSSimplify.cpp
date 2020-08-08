@@ -1089,7 +1089,9 @@ ConstraintSystem::TypeMatchResult constraints::matchCallArguments(
           synthesizedArgs;
       for (unsigned i = 0, n = argTuple->getNumElements(); i != n; ++i) {
         const auto &elt = argTuple->getElement(i);
-        AnyFunctionType::Param argument(elt.getType(), elt.getName());
+        assert(elt.getName().isSimpleName());
+        AnyFunctionType::Param argument(elt.getType(),
+                                        elt.getName().getBaseIdentifier());
         synthesizedArgs.push_back(std::make_pair(i, argument));
         argsWithLabels.push_back(argument);
       }
@@ -1588,7 +1590,9 @@ static bool fixMissingArguments(ConstraintSystem &cs, ASTNode anchor,
     if (auto *tuple = argType->getAs<TupleType>()) {
       args.pop_back();
       for (const auto &elt : tuple->getElements()) {
-        args.push_back(AnyFunctionType::Param(elt.getType(), elt.getName(),
+        // TODO: Handle compound names
+        args.push_back(AnyFunctionType::Param(elt.getType(),
+                                              elt.getName().getBaseIdentifier(),
                                               elt.getParameterFlags()));
       }
     } else if (auto *typeVar = argType->getAs<TypeVariableType>()) {
@@ -6009,26 +6013,28 @@ performMemberLookup(ConstraintKind constraintKind, DeclNameRef memberName,
   // of the tuple.
   auto &ctx = getASTContext();
   if (auto baseTuple = baseObjTy->getAs<TupleType>()) {
-    // Tuples don't have compound-name members.
-    if (!memberName.isSimpleName() || memberName.isSpecial())
-      return result;  // No result.
-
-    StringRef nameStr = memberName.getBaseIdentifier().str();
-    int fieldIdx = -1;
+    SmallString<16> scratch;
+    StringRef nameStr = memberName.getString(scratch);
     // Resolve a number reference into the tuple type.
     unsigned Value = 0;
     if (!nameStr.getAsInteger(10, Value) &&
         Value < baseTuple->getNumElements()) {
-      fieldIdx = Value;
+      // Add an overload set that selects this field.
+      result.ViableCandidates.push_back(OverloadChoice(baseTy, Value,
+                                                  FunctionRefKind::TupleIndex));
+    } else if (memberName.getFullName().isSimpleName()) {
+      SmallVector<int, 2> indices;
+      baseTuple->lookupElementsByBaseName(memberName.getBaseName(), indices);
+      for (int index : indices)
+        result.ViableCandidates.push_back(OverloadChoice(baseTy, index,
+                                                         functionRefKind));
     } else {
-      fieldIdx = baseTuple->getNamedElementId(memberName.getBaseIdentifier());
+      int fieldIdx = baseTuple->getNamedElementId(memberName.getFullName());
+      if (fieldIdx != -1)
+        result.ViableCandidates.push_back(OverloadChoice(baseTy, fieldIdx,
+                                                    FunctionRefKind::Compound));
     }
-    
-    if (fieldIdx == -1)
-      return result;    // No result.
-    
-    // Add an overload set that selects this field.
-    result.ViableCandidates.push_back(OverloadChoice(baseTy, fieldIdx));
+
     return result;
   }
 

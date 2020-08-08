@@ -2370,7 +2370,8 @@ isApplicable(ResolvedRangeInfo Info, DiagnosticEngine &Diag) {
 
   private:
     bool checkName(VarDecl *VD) {
-      auto Name = VD->getName().str();
+      llvm::SmallVector<char, 16> scratch;
+      auto Name = VD->getName().getString(scratch);
       if (ExpectName.empty())
         ExpectName = Name;
       return Name == ExpectName;
@@ -2456,7 +2457,8 @@ bool RefactoringActionConvertToSwitchStmt::performChange() {
       auto D = dyn_cast<DeclRefExpr>(E)->getDecl();
       if (D->getKind() != DeclKind::Var && D->getKind() != DeclKind::Param)
         return E;
-      VarName = dyn_cast<VarDecl>(D)->getName().str().str();
+      llvm::SmallVector<char, 16> scratch;
+      VarName = dyn_cast<VarDecl>(D)->getName().getString(scratch).str();
       return nullptr;
     }
   };
@@ -3121,11 +3123,11 @@ bool RefactoringActionLocalizeString::performChange() {
 }
 
 struct MemberwiseParameter {
-  Identifier Name;
+  DeclName Name;
   Type MemberType;
   Expr *DefaultExpr;
 
-  MemberwiseParameter(Identifier name, Type type, Expr *initialExpr)
+  MemberwiseParameter(DeclName name, Type type, Expr *initialExpr)
       : Name(name), MemberType(type), DefaultExpr(initialExpr) {}
 };
 
@@ -3315,7 +3317,8 @@ public:
   AddEquatableContext(NominalTypeDecl *Decl) : DC(Decl),
   Adopter(Decl->getDeclaredType()), StartLoc(Decl->getBraces().Start),
   ProtocolsLocations(Decl->getInherited()),
-  Protocols(Decl->getAllProtocols()), ProtInsertStartLoc(Decl->getNameLoc()),
+  Protocols(Decl->getAllProtocols()),
+  ProtInsertStartLoc(Decl->getNameLoc()),
   StoredProperties(Decl->getStoredProperties()), Range(Decl->getMembers()) {};
 
   AddEquatableContext(ExtensionDecl *Decl) : DC(Decl),
@@ -3870,7 +3873,8 @@ bool RefactoringActionConvertToComputedProperty::performChange() {
   
   OS << tok::kw_var << Space;
   // Add var name
-  OS << SV->getNameStr().str() << ":" << Space;
+  SV->getName().print(OS);
+  OS << ":" << Space;
   // For computed property must write a type of var
   if (TR) {
     OS << Lexer::getCharSourceRangeFromSourceRange(SM, TR->getSourceRange()).str();

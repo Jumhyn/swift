@@ -2364,7 +2364,8 @@ void TupleType::Profile(llvm::FoldingSetNodeID &ID,
                         ArrayRef<TupleTypeElt> Fields) {
   ID.AddInteger(Fields.size());
   for (const TupleTypeElt &Elt : Fields) {
-    ID.AddPointer(Elt.Name.get());
+    SmallString<16> scratch;
+    ID.AddString(Elt.Name.getString(scratch));
     ID.AddPointer(Elt.getType().getPointer());
     ID.AddInteger(Elt.Flags.toRaw());
   }
@@ -2426,7 +2427,7 @@ Type TupleType::get(ArrayRef<TupleTypeElt> Fields, const ASTContext &C) {
   return New;
 }
 
-TupleTypeElt::TupleTypeElt(Type ty, Identifier name,
+TupleTypeElt::TupleTypeElt(Type ty, DeclName name,
                            ParameterTypeFlags fl)
   : Name(name), ElementType(ty), Flags(fl) {
   if (fl.isInOut())
@@ -2949,16 +2950,33 @@ AnyFunctionType *AnyFunctionType::withExtInfo(ExtInfo info) const {
                                   getParams(), getResult(), info);
 }
 
+AnyFunctionType *AnyFunctionType::withArgLabels(
+    ArrayRef<Identifier> argLabels) const {
+  assert(getParams().size() == argLabels.size());
+  SmallVector<AnyFunctionType::Param, 4> newParams;
+  for (unsigned i = 0; i < getNumParams(); ++i) {
+    newParams.push_back(getParams()[i].withLabel(argLabels[i]));
+  }
+  if (const_cast<AnyFunctionType *>(this)->is<FunctionType>())
+    return FunctionType::get(newParams, getResult());
+  else if (const_cast<AnyFunctionType *>(this)->is<GenericFunctionType>())
+    return GenericFunctionType::get(getOptGenericSignature(), newParams,
+                                    getResult());
+  else
+    assert(false && "Unhandled function type");
+}
+
 void AnyFunctionType::decomposeInput(
     Type type, SmallVectorImpl<AnyFunctionType::Param> &result) {
   switch (type->getKind()) {
   case TypeKind::Tuple: {
     auto tupleTy = cast<TupleType>(type.getPointer());
     for (auto &elt : tupleTy->getElements()) {
+      assert(elt.getName().isSimpleName() && "Arg label must be simple");
       result.emplace_back((elt.isVararg()
                            ? elt.getVarargBaseTy()
                            : elt.getRawType()),
-                          elt.getName(),
+                          elt.getName().getBaseIdentifier(),
                           elt.getParameterFlags());
     }
     return;

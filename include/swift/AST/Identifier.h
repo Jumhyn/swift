@@ -553,6 +553,10 @@ public:
     }
   }
 
+  bool empty() const {
+    return isSimpleName() && getBaseName().empty();
+  }
+
   /// Compare two declaration names, producing -1 if \c *this comes before
   /// \c other,  1 if \c *this comes after \c other, and 0 if they are equal.
   ///

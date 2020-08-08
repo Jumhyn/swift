@@ -877,7 +877,8 @@ private:
           VD->getInterfaceType(),
           IGM.getTypeInfoForUnlowered(
               IGM.getSILTypes().getAbstractionPattern(VD), memberTy));
-      Elements.push_back(createMemberType(DbgTy, VD->getName().str(),
+      llvm::SmallString<16> scratch;
+      Elements.push_back(createMemberType(DbgTy, VD->getNameStr(scratch),
                                           OffsetInBits, Scope, File, Flags));
     }
     if (OffsetInBits > SizeInBits)

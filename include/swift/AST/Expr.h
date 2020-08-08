@@ -192,21 +192,22 @@ protected:
     LiteralCapacity : 32
   );
 
-  SWIFT_INLINE_BITFIELD(DeclRefExpr, Expr, 2+2,
+  SWIFT_INLINE_BITFIELD(DeclRefExpr, Expr, 2+3,
     Semantics : 2, // an AccessSemantics
-    FunctionRefKind : 2
+    FunctionRefKind : 3
   );
 
-  SWIFT_INLINE_BITFIELD(UnresolvedDeclRefExpr, Expr, 2+2,
+  SWIFT_INLINE_BITFIELD(UnresolvedDeclRefExpr, Expr, 2+3,
     DeclRefKind : 2,
-    FunctionRefKind : 2
+    FunctionRefKind : 3
   );
 
   SWIFT_INLINE_BITFIELD(MemberRefExpr, LookupExpr, 2,
     Semantics : 2 // an AccessSemantics
   );
 
-  SWIFT_INLINE_BITFIELD_FULL(TupleElementExpr, Expr, 32,
+  SWIFT_INLINE_BITFIELD_FULL(TupleElementExpr, Expr, 3+32,
+    FunctionRefKind : 3,
     : NumPadBits,
     FieldNo : 32
   );
@@ -222,8 +223,8 @@ protected:
     NumElements : 32
   );
 
-  SWIFT_INLINE_BITFIELD(UnresolvedDotExpr, Expr, 2,
-    FunctionRefKind : 2
+  SWIFT_INLINE_BITFIELD(UnresolvedDotExpr, Expr, 3,
+    FunctionRefKind : 3
   );
 
   SWIFT_INLINE_BITFIELD_FULL(SubscriptExpr, LookupExpr, 2+1+1+16,
@@ -262,8 +263,8 @@ protected:
     NumArgLabels : 16
   );
 
-  SWIFT_INLINE_BITFIELD(OverloadSetRefExpr, Expr, 2,
-    FunctionRefKind : 2
+  SWIFT_INLINE_BITFIELD(OverloadSetRefExpr, Expr, 3,
+    FunctionRefKind : 3
   );
 
   SWIFT_INLINE_BITFIELD(BooleanLiteralExpr, LiteralExpr, 1,
@@ -2097,7 +2098,7 @@ public:
 /// used to represent the operands to a binary operator.  Note that
 /// expressions like '(4)' are represented with a ParenExpr.
 class TupleExpr final : public Expr,
-    private llvm::TrailingObjects<TupleExpr, Expr *, Identifier, SourceLoc> {
+    private llvm::TrailingObjects<TupleExpr, Expr *, DeclName, DeclNameLoc> {
   friend TrailingObjects;
 
   SourceLoc LParenLoc;
@@ -2108,33 +2109,33 @@ class TupleExpr final : public Expr,
   size_t numTrailingObjects(OverloadToken<Expr *>) const {
     return getNumElements();
   }
-  size_t numTrailingObjects(OverloadToken<Identifier>) const {
+  size_t numTrailingObjects(OverloadToken<DeclName>) const {
     return hasElementNames() ? getNumElements() : 0;
   }
-  size_t numTrailingObjects(OverloadToken<SourceLoc>) const {
+  size_t numTrailingObjects(OverloadToken<DeclNameLoc>) const {
     return hasElementNames() ? getNumElements() : 0;
   }
 
   /// Retrieve the buffer containing the element names.
-  MutableArrayRef<Identifier> getElementNamesBuffer() {
+  MutableArrayRef<DeclName> getElementNamesBuffer() {
     if (!hasElementNames())
       return { };
 
-    return { getTrailingObjects<Identifier>(), getNumElements() };
+    return { getTrailingObjects<DeclName>(), getNumElements() };
   }
 
   /// Retrieve the buffer containing the element name locations.
-  MutableArrayRef<SourceLoc> getElementNameLocsBuffer() {
+  MutableArrayRef<DeclNameLoc> getElementNameLocsBuffer() {
     if (!hasElementNameLocs())
       return { };
     
-    return { getTrailingObjects<SourceLoc>(), getNumElements() };
+    return { getTrailingObjects<DeclNameLoc>(), getNumElements() };
   }
 
   TupleExpr(SourceLoc LParenLoc, SourceLoc RParenLoc,
             ArrayRef<Expr *> SubExprs,
-            ArrayRef<Identifier> ElementNames,
-            ArrayRef<SourceLoc> ElementNameLocs,
+            ArrayRef<DeclName> ElementNames,
+            ArrayRef<DeclNameLoc> ElementNameLocs,
             Optional<unsigned> FirstTrailingArgumentAt, bool Implicit, Type Ty);
 
 public:
@@ -2142,19 +2143,36 @@ public:
   static TupleExpr *create(ASTContext &ctx,
                            SourceLoc LParenLoc, 
                            ArrayRef<Expr *> SubExprs,
-                           ArrayRef<Identifier> ElementNames, 
-                           ArrayRef<SourceLoc> ElementNameLocs,
+                           ArrayRef<DeclName> ElementNames,
+                           ArrayRef<DeclNameLoc> ElementNameLocs,
                            SourceLoc RParenLoc, bool HasTrailingClosure, 
                            bool Implicit, Type Ty = Type());
+
+  static TupleExpr *createArgTuple(ASTContext &ctx,
+                                   SourceLoc LParenLoc,
+                                   ArrayRef<Expr *> SubExprs,
+                                   ArrayRef<Identifier> ElementNames,
+                                   ArrayRef<SourceLoc> ElementNameLocs,
+                                   SourceLoc RParenLoc, bool HasTrailingClosure,
+                                   bool Implicit, Type Ty = Type());
 
   static TupleExpr *create(ASTContext &ctx,
                            SourceLoc LParenLoc,
                            SourceLoc RParenLoc,
                            ArrayRef<Expr *> SubExprs,
-                           ArrayRef<Identifier> ElementNames,
-                           ArrayRef<SourceLoc> ElementNameLocs,
+                           ArrayRef<DeclName> ElementNames,
+                           ArrayRef<DeclNameLoc> ElementNameLocs,
                            Optional<unsigned> FirstTrailingArgumentAt,
                            bool Implicit, Type Ty = Type());
+
+  static TupleExpr *createArgTuple(ASTContext &ctx,
+                                   SourceLoc LParenLoc,
+                                   SourceLoc RParenLoc,
+                                   ArrayRef<Expr *> SubExprs,
+                                   ArrayRef<Identifier> ElementNames,
+                                   ArrayRef<SourceLoc> ElementNameLocs,
+                                   Optional<unsigned> FirstTrailingArgumentAt,
+                                   bool Implicit, Type Ty = Type());
 
   /// Create an empty tuple.
   static TupleExpr *createEmpty(ASTContext &ctx, SourceLoc LParenLoc, 
@@ -2162,7 +2180,7 @@ public:
 
   /// Create an implicit tuple with no source information.
   static TupleExpr *createImplicit(ASTContext &ctx, ArrayRef<Expr *> SubExprs,
-                                   ArrayRef<Identifier> ElementNames);
+                                   ArrayRef<DeclName> ElementNames);
 
   SourceLoc getLParenLoc() const { return LParenLoc; }
   SourceLoc getRParenLoc() const { return RParenLoc; }
@@ -2228,12 +2246,12 @@ public:
   }
 
   /// Retrieve the element names for a tuple.
-  ArrayRef<Identifier> getElementNames() const { 
+  ArrayRef<DeclName> getElementNames() const {
     return const_cast<TupleExpr *>(this)->getElementNamesBuffer();
   }
   
   /// Retrieve the ith element name.
-  Identifier getElementName(unsigned i) const {
+  DeclName getElementName(unsigned i) const {
     return hasElementNames() ? getElementNames()[i] : Identifier();
   }
   
@@ -2243,16 +2261,16 @@ public:
   }
 
   /// Retrieve the locations of the element names for a tuple.
-  ArrayRef<SourceLoc> getElementNameLocs() const {
+  ArrayRef<DeclNameLoc> getElementNameLocs() const {
     return const_cast<TupleExpr *>(this)->getElementNameLocsBuffer();
   }
 
   /// Retrieve the location of the ith label, if known.
-  SourceLoc getElementNameLoc(unsigned i) const {
+  DeclNameLoc getElementNameLoc(unsigned i) const {
     if (hasElementNameLocs())
       return getElementNameLocs()[i];
     
-    return SourceLoc();
+    return DeclNameLoc();
   }
 
   static bool classof(const Expr *E) { return E->getKind() == ExprKind::Tuple; }
@@ -2628,9 +2646,11 @@ class TupleElementExpr : public Expr {
 
 public:
   TupleElementExpr(Expr *SubExpr, SourceLoc DotLoc, unsigned FieldNo,
-                   SourceLoc NameLoc, Type Ty)
+                   SourceLoc NameLoc, Type Ty, FunctionRefKind functionRefKind)
     : Expr(ExprKind::TupleElement, /*Implicit=*/false, Ty), SubExpr(SubExpr),
       NameLoc(NameLoc), DotLoc(DotLoc) {
+    Bits.TupleElementExpr.FunctionRefKind = static_cast<unsigned>(
+                                                               functionRefKind);
     Bits.TupleElementExpr.FieldNo = FieldNo;
   }
 
@@ -2644,6 +2664,16 @@ public:
   
   SourceLoc getStartLoc() const { return getBase()->getStartLoc(); }
   SourceLoc getEndLoc() const { return getNameLoc(); }
+
+  /// Retrieve the kind of function reference.
+  FunctionRefKind getFunctionRefKind() const {
+    return static_cast<FunctionRefKind>(Bits.TupleElementExpr.FunctionRefKind);
+  }
+
+  /// Set the kind of function reference.
+  void setFunctionRefKind(FunctionRefKind refKind) {
+    Bits.TupleElementExpr.FunctionRefKind = static_cast<unsigned>(refKind);
+  }
 
   static bool classof(const Expr *E) {
     return E->getKind() == ExprKind::TupleElement;

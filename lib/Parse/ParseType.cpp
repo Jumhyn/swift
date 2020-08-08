@@ -1082,15 +1082,19 @@ ParserResult<TypeRepr> Parser::parseTypeTupleBody() {
     // If the tuple element starts with a potential argument label followed by a
     // ':' or another potential argument label, then the identifier is an
     // element tag, and it is followed by a type annotation.
-    if (Tok.canBeArgumentLabel()
-        && (peekToken().is(tok::colon)
-            || peekToken().canBeArgumentLabel())) {
+    bool isSimpleLabel = Tok.canBeArgumentLabel() &&
+      (peekToken().is(tok::colon) || peekToken().canBeArgumentLabel());
+
+
+    if (isSimpleLabel || canConsumeCompoundDeclName()) {
       // Consume a name.
-      element.NameLoc = consumeArgumentLabel(element.Name);
+      element.NameLoc = consumeArgumentLabel(element.Name,
+                                             /*allowCompound=*/true);
 
       // If there is a second name, consume it as well.
       if (Tok.canBeArgumentLabel())
-        element.SecondNameLoc = consumeArgumentLabel(element.SecondName);
+        element.SecondNameLoc = consumeArgumentLabel(element.SecondName,
+                                                     /*allowCompound=*/true);
 
       // Consume the ':'.
       if (consumeIf(tok::colon, element.ColonLoc)) {
@@ -1103,8 +1107,8 @@ ParserResult<TypeRepr> Parser::parseTypeTupleBody() {
         if (!Backtracking) {
           diagnose(Tok, diag::expected_parameter_colon);
         }
-        element.NameLoc = SourceLoc();
-        element.SecondNameLoc = SourceLoc();
+        element.NameLoc = DeclNameLoc();
+        element.SecondNameLoc = DeclNameLoc();
       }
 
     } else if (Backtracking) {
@@ -1186,14 +1190,14 @@ ParserResult<TypeRepr> Parser::parseTypeTupleBody() {
     if (!isFunctionType) {
       // If there were two names, complain.
       if (element.NameLoc.isValid() && element.SecondNameLoc.isValid()) {
-        auto diag = diagnose(element.NameLoc, diag::tuple_type_multiple_labels);
-        if (element.Name.empty()) {
-          diag.fixItRemoveChars(element.NameLoc,
+        auto diag = diagnose(element.NameLoc.getBaseNameLoc(),
+                             diag::tuple_type_multiple_labels);
+        if (element.Name.getBaseName().empty()) {
+          diag.fixItRemoveChars(element.NameLoc.getBaseNameLoc(),
                                 element.Type->getStartLoc());
         } else {
-          diag.fixItRemove(
-            SourceRange(Lexer::getLocForEndOfToken(SourceMgr, element.NameLoc),
-                        element.SecondNameLoc));
+          diag.fixItRemove(SourceRange(element.NameLoc.getEndLoc(),
+                                       element.SecondNameLoc.getBaseNameLoc()));
         }
       }
       continue;
@@ -1201,21 +1205,24 @@ ParserResult<TypeRepr> Parser::parseTypeTupleBody() {
 
     // If there was a first name, complain; arguments in function types are
     // always unlabeled.
-    if (element.NameLoc.isValid() && !element.Name.empty()) {
-      auto diag = diagnose(element.NameLoc, diag::function_type_argument_label,
+    // FIXME: Eventually, we want 'var f: (x: Int) -> Void' to be sugar for
+    // 'var f(x:): (Int) -> Void'.
+    if (element.NameLoc.isValid() && !element.Name.getBaseName().empty()) {
+      auto diag = diagnose(element.NameLoc.getBaseNameLoc(),
+                           diag::function_type_argument_label,
                            element.Name);
       if (element.SecondNameLoc.isInvalid())
-        diag.fixItInsert(element.NameLoc, "_ ");
-      else if (element.SecondName.empty())
-        diag.fixItRemoveChars(element.NameLoc,
+        diag.fixItInsert(element.NameLoc.getBaseNameLoc(), "_ ");
+      else if (element.SecondName.getBaseName().empty())
+        diag.fixItRemoveChars(element.NameLoc.getBaseNameLoc(),
                               element.Type->getStartLoc());
       else
-        diag.fixItReplace(SourceRange(element.NameLoc), "_");
+        diag.fixItReplace(element.NameLoc.getSourceRange(), "_");
     }
 
     if (element.SecondNameLoc.isValid()) {
       // Form the named parameter type representation.
-      element.UnderscoreLoc = element.NameLoc;
+      element.UnderscoreLoc = element.NameLoc.getBaseNameLoc();
       element.Name = element.SecondName;
       element.NameLoc = element.SecondNameLoc;
     }

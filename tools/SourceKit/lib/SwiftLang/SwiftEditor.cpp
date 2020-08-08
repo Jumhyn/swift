@@ -1527,8 +1527,9 @@ private:
           CharSourceRange TR;
           auto name = ArgElt.Name;
           if (!name.empty()) {
-            NR = CharSourceRange(ArgElt.NameLoc,
-                                 name.getLength());
+            llvm::SmallString<16> scratch;
+            NR = CharSourceRange(ArgElt.NameLoc.getStartLoc(),
+                                 name.getString(scratch).length());
           }
           SourceLoc SRE = Lexer::getLocForEndOfToken(SM,
                                                   ArgElt.Type->getEndLoc());
@@ -2261,7 +2262,12 @@ void SwiftEditorDocument::expandPlaceholder(unsigned Offset, unsigned Length,
             OS << "{ ";
           } else {
             auto label = args->getElementName(argI);
-            OS << " " << (label.empty() ? "_" : label.str()) << ": { ";
+            OS << " ";
+            if (label.empty())
+              OS << "_";
+            else
+              label.print(OS);
+            OS << ": { ";
           }
           printClosureBody(closure, OS, SM);
           OS << "}";

@@ -499,7 +499,8 @@ private:
       if (!handleBraces(ED->getBraces(), ContextLoc))
         return Stop;
     } else if (auto *VD = dyn_cast<VarDecl>(D)) {
-      if (!handleBraces(VD->getBracesRange(), VD->getNameLoc()))
+      if (!handleBraces(VD->getBracesRange(),
+                        VD->getNameLoc().getStartLoc()))
         return Stop;
     } else if (isa<AbstractFunctionDecl>(D) || isa<SubscriptDecl>(D)) {
       if (isa<SubscriptDecl>(D)) {
@@ -2565,7 +2566,7 @@ private:
     ListAligner Aligner(SM, TargetLocation, ContextLoc, L, R);
     auto NumElems = TE->getNumElements() - TE->getNumTrailingElements();
     for (auto I : range(NumElems)) {
-      SourceRange ElemRange = TE->getElementNameLoc(I);
+      SourceRange ElemRange = TE->getElementNameLoc(I).getSourceRange();
       if (Expr *Elem = TE->getElement(I))
         widenOrSet(ElemRange, Elem->getSourceRange());
       assert(ElemRange.isValid());
@@ -2649,7 +2650,7 @@ private:
       SourceLoc R = getLocIfKind(SM, Parens.End, tok::r_paren);
       ListAligner Aligner(SM, TargetLocation, ContextLoc, L, R);
       for (auto &Elem: TT->getElements()) {
-        SourceRange ElemRange = Elem.NameLoc;
+        SourceRange ElemRange = Elem.NameLoc.getSourceRange();
         widenOrSet(ElemRange, Elem.UnderscoreLoc);
         if (auto *T = Elem.Type)
           widenOrSet(ElemRange, T->getSourceRange());
@@ -2765,7 +2766,7 @@ private:
 
       ListAligner Aligner(SM, TargetLocation, ContextLoc, L, R);
       for (auto &Elem: TP->getElements()) {
-        SourceRange ElemRange = Elem.getLabelLoc();
+        SourceRange ElemRange = Elem.getLabelLoc().getSourceRange();
         if (auto *P = Elem.getPattern())
           widenOrSet(ElemRange, P->getSourceRange());
         Aligner.updateAlignment(ElemRange, TP);

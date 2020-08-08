@@ -1075,6 +1075,26 @@ Pattern *TypeChecker::coercePatternToType(ContextualPattern pattern,
     // sufficiently requestified.
     TypeChecker::checkForForbiddenPrefix(Context, var->getBaseName());
 
+    // If the decl has a compound name, the number of labels must match the
+    // number of arguments.
+    if (var->getName().isCompoundName()) {
+      if (auto fnTy = type->getAs<AnyFunctionType>()) {
+        auto argNames = var->getName().getArgumentNames();
+        if (argNames.size() != fnTy->getParams().size()) {
+          diags.diagnose(var->getNameLoc().getBaseNameLoc(),
+                         diag::decl_compound_name_function_num_params,
+                         var->getName(), type);
+          return nullptr;
+        }
+      }
+      else {
+        diags.diagnose(var->getNameLoc().getBaseNameLoc(),
+                       diag::decl_compound_name_function_type,
+                       var->getName(), type);
+        return nullptr;
+      }
+    }
+
     // If we are inferring a variable to have type AnyObject.Type,
     // "()", "[()]", an uninhabited type, or optional thereof, emit a diagnostic.
     // They are probably missing a cast or didn't mean to bind to a variable.
@@ -1118,7 +1138,8 @@ Pattern *TypeChecker::coercePatternToType(ContextualPattern pattern,
       diags.diagnose(NP->getLoc(), diag, NP->getDecl()->getName(), type,
                      NP->getDecl()->isLet());
       diags.diagnose(NP->getLoc(), diag::add_explicit_type_annotation_to_silence)
-          .fixItInsertAfter(var->getNameLoc(), ": " + type->getWithoutParens()->getString());
+          .fixItInsertAfter(var->getNameLoc().getEndLoc(),
+                            ": " + type->getWithoutParens()->getString());
     }
 
     return P;
@@ -1524,7 +1545,7 @@ Pattern *TypeChecker::coercePatternToType(ContextualPattern pattern,
       if (auto *TTy = dyn_cast<TupleType>(elementType.getPointer())) {
         for (auto &elt : TTy->getElements()) {
           auto *subPattern = AnyPattern::createImplicit(Context);
-          elements.push_back(TuplePatternElt(elt.getName(), SourceLoc(),
+          elements.push_back(TuplePatternElt(elt.getName(), DeclNameLoc(),
                                              subPattern));
         }
       } else {
@@ -1533,7 +1554,7 @@ Pattern *TypeChecker::coercePatternToType(ContextualPattern pattern,
         (void)parenTy;
         
         auto *subPattern = AnyPattern::createImplicit(Context);
-        elements.push_back(TuplePatternElt(Identifier(), SourceLoc(),
+        elements.push_back(TuplePatternElt(DeclName(), DeclNameLoc(),
                                            subPattern));
       }
       Pattern *sub = TuplePattern::createSimple(Context, SourceLoc(),

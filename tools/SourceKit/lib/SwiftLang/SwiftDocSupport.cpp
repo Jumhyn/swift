@@ -812,11 +812,12 @@ public:
     if (Node.Kind == SyntaxStructureKind::Parameter) {
       auto Param = dyn_cast<ParamDecl>(Node.Dcl);
 
-      auto passAnnotation = [&](UIdent Kind, SourceLoc Loc, Identifier Name) {
+      auto passAnnotation = [&](UIdent Kind, DeclNameLoc Loc, DeclName Name) {
         if (Loc.isInvalid())
           return;
-        unsigned Offset = SM.getLocOffsetInBuffer(Loc, BufferID);
-        unsigned Length = Name.empty() ? 1 : Name.getLength();
+        unsigned Offset = SM.getLocOffsetInBuffer(Loc.getStartLoc(), BufferID);
+        llvm::SmallString<16> scratch;
+        unsigned Length = Name.empty() ? 1 : Name.getString(scratch).size();
         reportRefsUntil(Offset);
 
         DocEntityInfo Info;
@@ -828,14 +829,14 @@ public:
 
       // Argument
       static UIdent KindArgument("source.lang.swift.syntaxtype.argument");
-      passAnnotation(KindArgument, Param->getArgumentNameLoc(),
+      passAnnotation(KindArgument, DeclNameLoc(Param->getArgumentNameLoc()),
                      Param->getArgumentName());
       LastArgLoc = Param->getArgumentNameLoc();
 
       // Parameter
       static UIdent KindParameter("source.lang.swift.syntaxtype.parameter");
       passAnnotation(KindParameter, Param->getNameLoc(), Param->getName());
-      LastParamLoc = Param->getNameLoc();
+      LastParamLoc = Param->getNameLoc().getStartLoc();
     }
 
     return true;

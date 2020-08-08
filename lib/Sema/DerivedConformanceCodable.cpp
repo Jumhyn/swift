@@ -119,9 +119,9 @@ varConformsToCodable(DeclContext *DC, VarDecl *varDecl, ProtocolDecl *proto) {
 /// Retrieve the variable name for the purposes of encoding/decoding.
 static Identifier getVarNameForCoding(VarDecl *var) {
   if (auto originalVar = var->getOriginalWrappedProperty())
-    return originalVar->getName();
+    return originalVar->getBaseIdentifier();
 
-  return var->getName();
+  return var->getBaseIdentifier();
 }
 
 /// Validates the given CodingKeys enum decl by ensuring its cases are a 1-to-1
@@ -448,7 +448,7 @@ static VarDecl *createKeyedContainer(ASTContext &C, DeclContext *DC,
 
   // let container : Keyed*Container<KeyType>
   auto *containerDecl = new (C) VarDecl(/*IsStatic=*/false, introducer,
-                                        /*IsCaptureList=*/false, SourceLoc(),
+                                        /*IsCaptureList=*/false, DeclNameLoc(),
                                         C.Id_container, DC);
   containerDecl->setImplicit();
   containerDecl->setInterfaceType(containerType);
@@ -473,8 +473,8 @@ static CallExpr *createContainerKeyedByCall(ASTContext &C, DeclContext *DC,
                                             NominalTypeDecl *param) {
   // (keyedBy:)
   auto *keyedByDecl = new (C)
-      ParamDecl(SourceLoc(), SourceLoc(),
-                C.Id_keyedBy, SourceLoc(), C.Id_keyedBy, DC);
+      ParamDecl(SourceLoc(), SourceLoc(), C.Id_keyedBy, DeclNameLoc(),
+                C.Id_keyedBy, DC);
   keyedByDecl->setImplicit();
   keyedByDecl->setSpecifier(ParamSpecifier::Default);
   keyedByDecl->setInterfaceType(returnType);
@@ -723,8 +723,8 @@ static FuncDecl *deriveEncodable_encode(DerivedConformance &derived) {
 
   // Params: (Encoder)
   auto *encoderParam = new (C)
-      ParamDecl(SourceLoc(), SourceLoc(), C.Id_to,
-                SourceLoc(), C.Id_encoder, conformanceDC);
+      ParamDecl(SourceLoc(), SourceLoc(), C.Id_to, DeclNameLoc(), C.Id_encoder,
+                conformanceDC);
   encoderParam->setSpecifier(ParamSpecifier::Default);
   encoderParam->setInterfaceType(encoderType);
 
@@ -1045,9 +1045,9 @@ static ValueDecl *deriveDecodable_init(DerivedConformance &derived) {
 
   // Params: (Decoder)
   auto decoderType = C.getDecoderDecl()->getDeclaredInterfaceType();
-  auto *decoderParamDecl = new (C) ParamDecl(
-      SourceLoc(), SourceLoc(), C.Id_from,
-      SourceLoc(), C.Id_decoder, conformanceDC);
+  auto *decoderParamDecl = new (C) ParamDecl(SourceLoc(), SourceLoc(),
+                                             C.Id_from, DeclNameLoc(),
+                                             C.Id_decoder, conformanceDC);
   decoderParamDecl->setImplicit();
   decoderParamDecl->setSpecifier(ParamSpecifier::Default);
   decoderParamDecl->setInterfaceType(decoderType);

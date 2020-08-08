@@ -2686,8 +2686,9 @@ class Serializer::DeclSerializer : public DeclVisitor<DeclSerializer> {
       abbrCode = S.DeclTypeAbbrCodes[TuplePatternEltLayout::Code];
       for (auto &elt : tuple->getElements()) {
         // FIXME: Default argument expressions?
+        // TODO: Handle compound names
         TuplePatternEltLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode,
-                                          S.addDeclBaseNameRef(elt.getLabel()));
+                            S.addDeclBaseNameRef(elt.getLabel().getBaseName()));
         writePattern(elt.getPattern());
       }
       break;
@@ -3328,7 +3329,8 @@ public:
 
     unsigned abbrCode = S.DeclTypeAbbrCodes[VarLayout::Code];
     VarLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode,
-                          S.addDeclBaseNameRef(var->getName()),
+                          // TODO: Handle compound names
+                          S.addDeclBaseNameRef(var->getName().getBaseIdentifier()),
                           contextID.getOpaqueValue(),
                           var->isImplicit(),
                           var->isObjC(),
@@ -3375,7 +3377,8 @@ public:
     unsigned abbrCode = S.DeclTypeAbbrCodes[ParamLayout::Code];
     ParamLayout::emitRecord(S.Out, S.ScratchRecord, abbrCode,
         S.addDeclBaseNameRef(param->getArgumentName()),
-        S.addDeclBaseNameRef(param->getName()),
+        // TODO: Handle compound names
+        S.addDeclBaseNameRef(param->getName().getBaseIdentifier()),
         contextID.getOpaqueValue(),
         getRawStableParamDeclSpecifier(param->getSpecifier()),
         S.addTypeRef(interfaceType),
@@ -3996,7 +3999,8 @@ public:
       assert(elt.getParameterFlags().isNone());
       TupleTypeEltLayout::emitRecord(
           S.Out, S.ScratchRecord, abbrCode,
-          S.addDeclBaseNameRef(elt.getName()),
+          // TODO: Handle compound names
+          S.addDeclBaseNameRef(elt.getName().getBaseName()),
           S.addTypeRef(elt.getType()));
     }
   }

@@ -404,8 +404,14 @@ namespace {
     TupleFieldInfo getFieldInfo(unsigned index,
                                 const TupleTypeElt &field,
                                 const TypeInfo &fieldTI) {
-      StringRef name = field.hasName() ? field.getName().str() : "elt";
-      return TupleFieldInfo(index, name, fieldTI);
+      // TODO: Fix this
+      if (field.hasName()) {
+        llvm::SmallString<16> scratch;
+        return  TupleFieldInfo(index, field.getName().getString(scratch),
+                               fieldTI);
+      } else {
+        return TupleFieldInfo(index, "elt", fieldTI);
+      }
     }
 
     SILType getType(const TupleTypeElt &field) {

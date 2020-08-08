@@ -712,7 +712,9 @@ bool AbstractFunctionDecl::isTransparent() const {
 
 bool ParameterList::hasInternalParameter(StringRef Prefix) const {
   for (auto param : *this) {
-    if (param->hasName() && param->getNameStr().startswith(Prefix))
+    llvm::SmallString<16> scratch;
+    auto nameStr = param->getName().getString(scratch);
+    if (param->hasName() && nameStr.startswith(Prefix))
       return true;
     auto argName = param->getArgumentName();
     if (!argName.empty() && argName.str().startswith(Prefix))
@@ -928,7 +930,7 @@ GenericParamList::clone(DeclContext *dc) const {
   SmallVector<GenericTypeParamDecl *, 2> params;
   for (auto param : getParams()) {
     auto *newParam = new (ctx) GenericTypeParamDecl(
-      dc, param->getName(), param->getNameLoc(),
+      dc, param->getName(), param->getStartLoc(),
       GenericTypeParamDecl::InvalidDepth,
       param->getIndex());
     params.push_back(newParam);
@@ -1557,8 +1559,9 @@ ParamDecl *PatternBindingInitializer::getImplicitSelfDecl() const {
       ASTContext &C = DC->getASTContext();
       auto *mutableThis = const_cast<PatternBindingInitializer *>(this);
       auto *LazySelfParam = new (C) ParamDecl(SourceLoc(), SourceLoc(),
-                                    Identifier(), singleVar->getLoc(),
-                                    C.Id_self, mutableThis);
+                                              Identifier(),
+                                              DeclNameLoc(singleVar->getLoc()),
+                                              C.Id_self, mutableThis);
       LazySelfParam->setImplicit();
       LazySelfParam->setSpecifier(specifier);
       LazySelfParam->setInterfaceType(DC->getSelfInterfaceType());
@@ -3917,7 +3920,7 @@ SourceRange TypeAliasDecl::getSourceRange() const {
     return { TypeAliasLoc, UnderlyingTy.getSourceRange().End };
   if (TypeEndLoc.isValid())
     return { TypeAliasLoc, TypeEndLoc };
-  return { TypeAliasLoc, getNameLoc() };
+  return { TypeAliasLoc, getEndLoc() };
 }
 
 Type TypeAliasDecl::getUnderlyingType() const {
@@ -4004,12 +4007,12 @@ GenericTypeParamDecl::GenericTypeParamDecl(DeclContext *dc, Identifier name,
 }
 
 SourceRange GenericTypeParamDecl::getSourceRange() const {
-  SourceLoc endLoc = getNameLoc();
+  SourceLoc endLoc = getEndLoc();
 
   if (!getInherited().empty()) {
     endLoc = getInherited().back().getSourceRange().End;
   }
-  return SourceRange(getNameLoc(), endLoc);
+  return SourceRange(getStartLoc(), endLoc);
 }
 
 AssociatedTypeDecl::AssociatedTypeDecl(DeclContext *dc, SourceLoc keywordLoc,
@@ -4048,7 +4051,7 @@ SourceRange AssociatedTypeDecl::getSourceRange() const {
   } else if (!getInherited().empty()) {
     endLoc = getInherited().back().getSourceRange().End;
   } else {
-    endLoc = getNameLoc();
+    endLoc = getEndLoc();
   }
   return SourceRange(KeywordLoc, endLoc);
 }
@@ -5484,7 +5487,7 @@ Type AbstractStorageDecl::getValueInterfaceType() const {
 }
 
 VarDecl::VarDecl(DeclKind kind, bool isStatic, VarDecl::Introducer introducer,
-                 bool isCaptureList, SourceLoc nameLoc, Identifier name,
+                 bool isCaptureList, DeclNameLoc nameLoc, DeclName name,
                  DeclContext *dc, StorageIsMutable_t supportsMutation)
   : AbstractStorageDecl(kind, isStatic, dc, name, nameLoc, supportsMutation)
 {
@@ -5600,7 +5603,7 @@ bool VarDecl::isLazilyInitializedGlobal() const {
 SourceRange VarDecl::getSourceRange() const {
   if (auto Param = dyn_cast<ParamDecl>(this))
     return Param->getSourceRange();
-  return getNameLoc();
+  return getNameLoc().getSourceRange();
 }
 
 SourceRange VarDecl::getTypeSourceRangeForDiagnostics() const {
@@ -5916,7 +5919,8 @@ bool ParamDecl::isAnonClosureParam() const {
   if (name.empty())
     return false;
 
-  auto nameStr = name.str();
+  llvm::SmallString<16> scratch;
+  auto nameStr = name.getString(scratch);
   if (nameStr.empty())
     return false;
 
@@ -6098,7 +6102,8 @@ Identifier VarDecl::getObjCPropertyName() const {
       return name->getSelectorPieces()[0];
   }
 
-  return getName();
+  assert(getName().isSimpleName());
+  return getName().getBaseIdentifier();
 }
 
 ObjCSelector VarDecl::getDefaultObjCGetterSelector(ASTContext &ctx,
@@ -6176,7 +6181,7 @@ void VarDecl::emitLetToVarNoteIfSimple(DeclContext *UseDC) const {
 
 ParamDecl::ParamDecl(SourceLoc specifierLoc,
                      SourceLoc argumentNameLoc, Identifier argumentName,
-                     SourceLoc parameterNameLoc, Identifier parameterName,
+                     DeclNameLoc parameterNameLoc, DeclName parameterName,
                      DeclContext *dc)
     : VarDecl(DeclKind::Param,
               /*IsStatic*/ false,
@@ -6194,7 +6199,7 @@ ParamDecl::ParamDecl(SourceLoc specifierLoc,
 ParamDecl *ParamDecl::cloneWithoutType(const ASTContext &Ctx, ParamDecl *PD) {
   auto *Clone = new (Ctx) ParamDecl(
       SourceLoc(), SourceLoc(), PD->getArgumentName(),
-      SourceLoc(), PD->getParameterName(), PD->getDeclContext());
+      DeclNameLoc(), PD->getParameterName(), PD->getDeclContext());
   Clone->DefaultValueAndFlags.setPointerAndInt(
       nullptr, PD->DefaultValueAndFlags.getInt());
   Clone->Bits.ParamDecl.defaultArgumentKind =
@@ -6236,13 +6241,13 @@ Type DeclContext::getSelfInterfaceType() const {
 /// Return the full source range of this parameter.
 SourceRange ParamDecl::getSourceRange() const {
   SourceLoc APINameLoc = getArgumentNameLoc();
-  SourceLoc nameLoc = getNameLoc();
+  DeclNameLoc nameLoc = getParameterNameLoc();
 
   SourceLoc startLoc;
   if (APINameLoc.isValid())
     startLoc = APINameLoc;
   else if (nameLoc.isValid())
-    startLoc = nameLoc;
+    startLoc = nameLoc.getStartLoc();
   else if (auto *repr = getTypeRepr())
     startLoc = repr->getStartLoc();
 
@@ -6267,7 +6272,7 @@ SourceRange ParamDecl::getSourceRange() const {
 
   // The name has a location we can use.
   if (nameLoc.isValid())
-    return SourceRange(startLoc, nameLoc);
+    return SourceRange(startLoc, nameLoc.getEndLoc());
 
   return startLoc;
 }
@@ -6319,6 +6324,12 @@ AnyFunctionType::Param ParamDecl::toFunctionParam(Type type) const {
 
   if (isVariadic())
     type = ParamDecl::getVarargBaseTy(type);
+
+  // If this ParamDecl has argument labels as part of its internal name, they
+  // should not be reflected in the external type.
+  if (getName().isCompoundName())
+    if (auto fnTy = type->getAs<AnyFunctionType>())
+      type = fnTy->removeArgumentLabels(1);
 
   auto label = getArgumentName();
   auto flags = ParameterTypeFlags::fromParameterType(
@@ -6502,7 +6513,8 @@ static void writeTupleOfNils(TupleType *type, llvm::raw_ostream &os) {
   for (unsigned i = 0; i < type->getNumElements(); ++i) {
     auto &elt = type->getElement(i);
     if (elt.hasName()) {
-      os << elt.getName().str() << ": ";
+      elt.getName().print(os);
+      os << ": ";
     }
 
     if (elt.getType()->getOptionalObjectType()) {
@@ -6882,9 +6894,9 @@ SourceRange AbstractFunctionDecl::getSignatureSourceRange() const {
 
   auto endLoc = paramList->getSourceRange().End;
   if (endLoc.isValid())
-    return SourceRange(getNameLoc(), endLoc);
+    return SourceRange(getNameLoc().getBaseNameLoc(), endLoc);
 
-  return getNameLoc();
+  return getNameLoc().getBaseNameLoc();
 }
 
 ObjCSelector
@@ -7062,7 +7074,7 @@ ParamDecl *AbstractFunctionDecl::getImplicitSelfDecl(bool createIfNeeded) {
   // Create and save our 'self' parameter.
   auto &ctx = getASTContext();
   *selfDecl = new (ctx) ParamDecl(SourceLoc(), SourceLoc(), Identifier(),
-                                  getLoc(), ctx.Id_self, this);
+                                  DeclNameLoc(getLoc()), ctx.Id_self, this);
   (*selfDecl)->setImplicit();
 
   return *selfDecl;
@@ -7542,7 +7554,7 @@ EnumElementDecl::EnumElementDecl(SourceLoc IdentifierLoc, DeclName Name,
                                  LiteralExpr *RawValueExpr,
                                  DeclContext *DC)
   : DeclContext(DeclContextKind::EnumElementDecl, DC),
-    ValueDecl(DeclKind::EnumElement, DC, Name, IdentifierLoc),
+    ValueDecl(DeclKind::EnumElement, DC, Name, DeclNameLoc(IdentifierLoc)),
     EqualsLoc(EqualsLoc),
     RawValueExpr(RawValueExpr) {
   setParameterList(Params);
@@ -7553,7 +7565,7 @@ SourceRange EnumElementDecl::getSourceRange() const {
     return {getStartLoc(), RawValueExpr->getEndLoc()};
   if (auto *PL = getParameterList())
     return {getStartLoc(), PL->getSourceRange().End};
-  return {getStartLoc(), getNameLoc()};
+  return {getStartLoc(), getEndLoc()};
 }
 
 Type EnumElementDecl::getArgumentInterfaceType() const {

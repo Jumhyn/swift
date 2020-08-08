@@ -148,11 +148,20 @@ static bool startsParameterName(Parser &parser, bool isClosure) {
     return true;
 
   // To have a parameter name here, we need a name.
+  Token nextTok;
   if (!parser.Tok.canBeArgumentLabel())
     return false;
+  else {
+    Token following;
+    // If we have a compound name, consider the token after the *full* name,
+    // rather than the very next token.
+    if (parser.canConsumeCompoundDeclName(&following))
+      nextTok = following;
+    else
+      nextTok = parser.peekToken();
+  }
 
   // If the next token can be an argument label or is ':', this is a name.
-  const auto &nextTok = parser.peekToken();
   if (nextTok.is(tok::colon) || nextTok.canBeArgumentLabel())
     return true;
 
@@ -274,11 +283,15 @@ Parser::parseParameterClause(SourceLoc &leftParenLoc,
     
     if (startsParameterName(*this, isClosure)) {
       // identifier-or-none for the first name
-      param.FirstNameLoc = consumeArgumentLabel(param.FirstName);
+      param.FirstNameLoc = consumeArgumentLabel(param.FirstName,
+                                                /*allowCompound=*/true);
+
 
       // identifier-or-none? for the second name
-      if (Tok.canBeArgumentLabel())
-        param.SecondNameLoc = consumeArgumentLabel(param.SecondName);
+      if (Tok.canBeArgumentLabel()) {
+        param.SecondNameLoc = consumeArgumentLabel(param.SecondName,
+                                                   /*allowCompound=*/true);
+      }
 
       // Operators, closures, and enum elements cannot have API names.
       if ((paramContext == ParameterContextKind::Operator ||
@@ -305,13 +318,72 @@ Parser::parseParameterClause(SourceLoc &leftParenLoc,
         default:
           llvm_unreachable("Unhandled parameter context kind!");
         }
-        diagnose(param.FirstNameLoc, diag::parameter_operator_keyword_argument,
+        diagnose(param.FirstNameLoc.getBaseNameLoc(),
+                 diag::parameter_operator_keyword_argument,
                  unsigned(diagContextKind))
-          .fixItRemoveChars(param.FirstNameLoc, param.SecondNameLoc);
+          .fixItRemoveChars(param.FirstNameLoc.getStartLoc(),
+                            param.SecondNameLoc.getStartLoc());
         param.FirstName = param.SecondName;
         param.FirstNameLoc = param.SecondNameLoc;
         param.SecondName = Identifier();
-        param.SecondNameLoc = SourceLoc();
+        param.SecondNameLoc = DeclNameLoc();
+      }
+
+      // The API name can never be a compound name.
+      if (paramContext == ParameterContextKind::EnumElement ||
+          (paramContext == ParameterContextKind::Subscript &&
+           param.SecondNameLoc.isValid()) ||
+          paramContext == ParameterContextKind::Function ||
+          paramContext == ParameterContextKind::Initializer) {
+        if (param.FirstName.isCompoundName()) {
+          enum CompoundArgumentLabelDiagnosticContextKind {
+            Function    = 0,
+            Initializer = 1,
+            Subscript   = 2,
+            EnumElement = 3,
+          } diagContextKind;
+
+          switch (paramContext) {
+          case ParameterContextKind::Function:
+            diagContextKind = Function;
+            break;
+          case ParameterContextKind::Initializer:
+            diagContextKind = Initializer;
+            break;
+          case ParameterContextKind::Subscript:
+            diagContextKind = Subscript;
+            break;
+          case ParameterContextKind::EnumElement:
+            diagContextKind = EnumElement;
+            break;
+          default:
+            llvm_unreachable("Unhandled parameter context kind!");
+          }
+
+          auto diag = diagnose(param.FirstNameLoc.getBaseNameLoc(),
+                               diag::external_parameter_label_compound_name,
+                               unsigned(diagContextKind));
+          if ((paramContext == ParameterContextKind::Function ||
+               paramContext == ParameterContextKind::Initializer) &&
+              param.SecondNameLoc.isInvalid()) {
+            // If this is a function or initializer with no internal name,
+            // preserve the compound name for internal use.
+            SmallString<16> scratch;
+            diag.fixItReplaceChars(param.FirstNameLoc.getLParenLoc(),
+                                   param.FirstNameLoc.getRParenLoc(),
+                                " " + param.FirstName.getString(scratch).str());
+
+            param.SecondName = param.FirstName;
+            param.SecondNameLoc = param.FirstNameLoc;
+          } else {
+            // Otherwise just remove the argument labels from the name.
+            diag.fixItRemoveChars(param.FirstNameLoc.getLParenLoc(),
+                              param.FirstNameLoc.getRParenLoc());
+          }
+
+          param.FirstName = param.FirstName.getBaseName();
+          param.FirstNameLoc = DeclNameLoc(param.FirstNameLoc.getBaseNameLoc());
+        }
       }
 
       // (':' type)?
@@ -344,9 +416,9 @@ Parser::parseParameterClause(SourceLoc &leftParenLoc,
         status |= type;
         param.Type = type.getPtrOrNull();
         param.FirstName = Identifier();
-        param.FirstNameLoc = SourceLoc();
+        param.FirstNameLoc = DeclNameLoc();
         param.SecondName = Identifier();
-        param.SecondNameLoc = SourceLoc();
+        param.SecondNameLoc = DeclNameLoc();
       } else if (isBareType) {
         // Otherwise, if this is a bare type, then the user forgot to name the
         // parameter, e.g. "func foo(Int) {}"
@@ -388,8 +460,8 @@ Parser::parseParameterClause(SourceLoc &leftParenLoc,
         // like a parameter.
         diagnose(Tok, diag::expected_parameter_name);
         param.isInvalid = true;
-        param.FirstNameLoc = Tok.getLoc();
-        TokReceiver->registerTokenKindChange(param.FirstNameLoc,
+        param.FirstNameLoc = DeclNameLoc(Tok.getLoc());
+        TokReceiver->registerTokenKindChange(param.FirstNameLoc.getBaseNameLoc(),
                                              tok::identifier);
         status.setIsParseError();
       }
@@ -486,7 +558,7 @@ mapParsedParameters(Parser &parser,
   // Local function to create a pattern for a single parameter.
   auto createParam = [&](Parser::ParsedParameter &paramInfo,
                          Identifier argName, SourceLoc argNameLoc,
-                         Identifier paramName, SourceLoc paramNameLoc)
+                         DeclName paramName, DeclNameLoc paramNameLoc)
   -> ParamDecl * {
     auto param = new (ctx) ParamDecl(paramInfo.SpecifierLoc,
                                      argNameLoc, argName,
@@ -595,27 +667,32 @@ mapParsedParameters(Parser &parser,
     // Create the pattern.
     ParamDecl *result = nullptr;
     Identifier argName;
-    Identifier paramName;
+    DeclName paramName;
     if (param.SecondNameLoc.isValid()) {
-      argName = param.FirstName;
+      assert(param.FirstName.isSimpleName());
+      argName = param.FirstName.getBaseIdentifier();
       paramName = param.SecondName;
 
       // Both names were provided, so pass them in directly.
-      result = createParam(param, argName, param.FirstNameLoc,
+      result = createParam(param, argName, param.FirstNameLoc.getBaseNameLoc(),
                            paramName, param.SecondNameLoc);
 
       // If the first and second names are equivalent and non-empty, and we
       // would have an argument label by default, complain.
       if (isKeywordArgumentByDefault && param.FirstName == param.SecondName
           && !param.FirstName.empty()) {
-        parser.diagnose(param.FirstNameLoc,
+        parser.diagnose(param.FirstNameLoc.getBaseNameLoc(),
                         diag::parameter_extraneous_double_up,
                         param.FirstName)
-          .fixItRemoveChars(param.FirstNameLoc, param.SecondNameLoc);
+          .fixItRemoveChars(param.FirstNameLoc.getStartLoc(),
+                            param.SecondNameLoc.getStartLoc());
       }
     } else {
-      if (isKeywordArgumentByDefault)
-        argName = param.FirstName;
+      if (isKeywordArgumentByDefault) {
+        // TODO: Offer diagnostic here...
+        assert(param.FirstName.isSimpleName());
+        argName = param.FirstName.getBaseIdentifier();
+      }
       paramName = param.FirstName;
 
       result = createParam(param, argName, SourceLoc(),
@@ -625,7 +702,7 @@ mapParsedParameters(Parser &parser,
     // Warn when an unlabeled parameter follows a variadic parameter
     if (ellipsisLoc.isValid() && elements.back()->isVariadic() &&
         param.FirstName.empty()) {
-      parser.diagnose(param.FirstNameLoc,
+      parser.diagnose(param.FirstNameLoc.getBaseNameLoc(),
                       diag::unlabeled_parameter_following_variadic_parameter);
     }
     
@@ -783,7 +860,7 @@ Parser::parseFunctionSignature(Identifier SimpleName,
   Status |= parseFunctionArguments(NamePieces, bodyParams, paramContext,
                                    defaultArgs);
   FullName = DeclName(Context, SimpleName, NamePieces);
-  
+
   // Check for the 'throws' keyword.
   rethrows = false;
   if (Tok.is(tok::kw_throws)) {
@@ -903,8 +980,8 @@ ParserResult<Pattern> Parser::parseTypedPattern() {
         
         SourceLoc lParenLoc, rParenLoc;
         SmallVector<Expr *, 2> args;
-        SmallVector<Identifier, 2> argLabels;
-        SmallVector<SourceLoc, 2> argLabelLocs;
+        SmallVector<DeclName, 2> argLabels;
+        SmallVector<DeclNameLoc, 2> argLabelLocs;
         SmallVector<TrailingClosure, 2> trailingClosures;
         ParserStatus status = parseExprList(tok::l_paren, tok::r_paren,
                                             /*isPostfix=*/true,
@@ -960,7 +1037,7 @@ ParserResult<Pattern> Parser::parsePattern() {
       PatternCtx.setCreateSyntax(SyntaxKind::IdentifierPattern);
       auto VD = new (Context) VarDecl(
         /*IsStatic*/false, introducer, /*IsCaptureList*/false,
-        consumeToken(tok::kw__), Identifier(), CurDeclContext);
+        DeclNameLoc(consumeToken(tok::kw__)), Identifier(), CurDeclContext);
       return makeParserResult(NamedPattern::createImplicit(Context, VD));
     }
     PatternCtx.setCreateSyntax(SyntaxKind::WildcardPattern);
@@ -968,14 +1045,23 @@ ParserResult<Pattern> Parser::parsePattern() {
     
   case tok::identifier: {
     PatternCtx.setCreateSyntax(SyntaxKind::IdentifierPattern);
-    Identifier name;
-    SourceLoc loc = consumeIdentifier(&name);
-    if (Tok.isIdentifierOrUnderscore() && !Tok.isContextualDeclKeyword())
-      diagnoseConsecutiveIDs(name.str(), loc,
-                             introducer == VarDecl::Introducer::Let
-                             ? "constant" : "variable");
+    DeclNameLoc NameLoc;
+    auto Name = parseDeclName(NameLoc, diag::expected_pattern,
+                              DeclNameFlag::AllowCompoundNames);
+    if (Tok.isIdentifierOrUnderscore() && !Tok.isContextualDeclKeyword()) {
+      if (Name.isSimpleName())
+        diagnoseConsecutiveIDs(Name.getBaseIdentifier().str(),
+                               NameLoc.getBaseNameLoc(),
+                               introducer == VarDecl::Introducer::Let
+                               ? "constant" : "variable");
+      // TODO: Handle compound names (better)
+      else {
+        diagnose(NameLoc.getBaseNameLoc(), diag::expected_pattern);
+      }
+    }
 
-    return makeParserResult(createBindingFromPattern(loc, name, introducer));
+    return makeParserResult(createBindingFromPattern(NameLoc.getBaseNameLoc(),
+                                                     Name, introducer));
   }
     
   case tok::code_complete:
@@ -1029,11 +1115,11 @@ ParserResult<Pattern> Parser::parsePattern() {
   }
 }
 
-Pattern *Parser::createBindingFromPattern(SourceLoc loc, Identifier name,
+Pattern *Parser::createBindingFromPattern(SourceLoc loc, DeclName name,
                                           VarDecl::Introducer introducer) {
   auto var = new (Context) VarDecl(/*IsStatic*/false, introducer,
-                                   /*IsCaptureList*/false, loc, name,
-                                   CurDeclContext);
+                                   /*IsCaptureList*/false, DeclNameLoc(loc),
+                                   name, CurDeclContext);
   return new (Context) NamedPattern(var);
 }
 
@@ -1044,12 +1130,15 @@ Pattern *Parser::createBindingFromPattern(SourceLoc loc, Identifier name,
 std::pair<ParserStatus, Optional<TuplePatternElt>>
 Parser::parsePatternTupleElement() {
   // If this element has a label, parse it.
-  Identifier Label;
-  SourceLoc LabelLoc;
+  DeclName Label;
+  DeclNameLoc LabelLoc;
 
   // If the tuple element has a label, parse it.
-  if (Tok.is(tok::identifier) && peekToken().is(tok::colon)) {
-    LabelLoc = consumeIdentifier(&Label);
+  Token following;
+  if ((Tok.is(tok::identifier) && peekToken().is(tok::colon)) ||
+      (canConsumeCompoundDeclName(&following) && following.is(tok::colon))) {
+    Label = parseDeclName(LabelLoc, diag::expected_pattern,
+                          DeclNameFlag::AllowCompoundNames);
     consumeToken(tok::colon);
   }
 

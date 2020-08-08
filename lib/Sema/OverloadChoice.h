@@ -135,10 +135,10 @@ public:
            "wrong constructor for decl");
   }
 
-  OverloadChoice(Type base, unsigned index)
+  OverloadChoice(Type base, unsigned index, FunctionRefKind functionRefKind)
       : BaseAndDeclKind(base, 0),
         DeclOrKind(uint32_t(OverloadChoiceKind::TupleIndex)+index),
-        TheFunctionRefKind(FunctionRefKind::Unapplied) {
+        TheFunctionRefKind(functionRefKind) {
     assert(base->getRValueType()->is<TupleType>() && "Must have tuple type");
   }
 
@@ -273,7 +273,8 @@ public:
   }
 
   FunctionRefKind getFunctionRefKind() const {
-    assert(isDecl() && "only makes sense for declaration choices");
+    assert(isDecl() || getKind() >= OverloadChoiceKind::TupleIndex &&
+           "only makes sense for declaration or tuple element choices");
     return TheFunctionRefKind;
   }
 };

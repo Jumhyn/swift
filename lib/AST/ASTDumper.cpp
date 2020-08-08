@@ -456,7 +456,10 @@ namespace {
       interleave(P->getElements(),
                  [&](const TuplePatternElt &elt) {
                    auto name = elt.getLabel();
-                   OS << (name.empty() ? "''" : name.str());
+                   if (name.empty())
+                     OS << "''";
+                   else
+                     name.print(OS);
                  },
                  [&] { OS << ","; });
 
@@ -467,8 +470,10 @@ namespace {
       PrintWithColorRAII(OS, ParenthesisColor) << ')';
     }
     void visitNamedPattern(NamedPattern *P) {
+      llvm::SmallVector<char, 16> scratch;
       printCommon(P, "pattern_named");
-      PrintWithColorRAII(OS, IdentifierColor) << " '" << P->getNameStr() << "'";
+      PrintWithColorRAII(OS, IdentifierColor) << " '";
+      PrintWithColorRAII(OS, IdentifierColor) << P->getNameStr(scratch) << "'";
       PrintWithColorRAII(OS, ParenthesisColor) << ')';
     }
     void visitAnyPattern(AnyPattern *P) {
@@ -2140,9 +2145,14 @@ public:
       PrintWithColorRAII(OS, IdentifierColor) << " names=";
 
       interleave(E->getElementNames(),
-                 [&](Identifier name) {
-                   PrintWithColorRAII(OS, IdentifierColor)
-                     << (name.empty()?"''":name.str());
+                 [&](DeclName name) {
+                   if (name.getBaseName().empty())
+                       PrintWithColorRAII(OS, IdentifierColor) << "''";
+                   else {
+                     llvm::SmallString<16> scratch;
+                     PrintWithColorRAII(OS, IdentifierColor) <<
+                       name.getString(scratch);
+                   }
                  },
                  [&] { PrintWithColorRAII(OS, IdentifierColor) << ","; });
     }
@@ -3000,10 +3010,18 @@ public:
       for (unsigned i = 0, end = T->getNumElements(); i != end; ++i) {
         if (i) OS << ",";
         auto name = T->getElementName(i);
-        if (T->isNamedParameter(i))
-          OS << (name.empty() ? "_" : "_ " + name.str());
-        else
-          OS << (name.empty() ? "''" : name.str());
+        if (T->isNamedParameter(i)) {
+          OS << (name.empty() ? "_" : "_ ");
+          if (!name.empty())
+            name.print(OS);
+        }
+        else {
+          if (name.empty()) {
+            OS << "''";
+          } else {
+            name.print(OS);
+          }
+        }
       }
     }
 
@@ -3541,8 +3559,10 @@ namespace {
         OS << "\n";
         OS.indent(Indent) << "(";
         PrintWithColorRAII(OS, TypeFieldColor) << "tuple_type_elt";
-        if (elt.hasName())
-          printField("name", elt.getName().str());
+        if (elt.hasName()) {
+          SmallString<16> scratch;
+          printField("name", elt.getName().getString(scratch));
+        }
         dumpParameterFlags(elt.getParameterFlags());
         printRec(elt.getType());
         OS << ")";

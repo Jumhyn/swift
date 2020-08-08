@@ -1138,7 +1138,8 @@ static llvm::Constant *getTupleLabelsString(IRGenModule &IGM,
   for (auto &elt : type->getElements()) {
     if (elt.hasName()) {
       hasLabels = true;
-      buffer.append(elt.getName().str());
+      SmallString<32> scratch;
+      buffer.append(elt.getName().getString(scratch));
     }
 
     // Each label is space-terminated.

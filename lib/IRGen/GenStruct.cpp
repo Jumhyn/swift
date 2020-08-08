@@ -71,7 +71,8 @@ namespace {
     VarDecl * const Field;
 
     StringRef getFieldName() const {
-      return Field->getName().str();
+      llvm::SmallString<16> scratch;
+      return Field->getNameStr(scratch);
     }
     
     SILType getType(IRGenModule &IGM, SILType T) const {
@@ -91,7 +92,10 @@ namespace {
     VarDecl * const Field;
 
     StringRef getFieldName() const {
-      if (Field) return Field->getName().str();
+      if (Field) {
+        llvm::SmallString<16> scratch;
+        return Field->getNameStr(scratch);
+      }
       return "<unimported>";
     }
 

@@ -285,7 +285,8 @@ VarDecl *getTangentStoredProperty(ADContext &context, VarDecl *originalField,
   auto *parentDC = originalField->getDeclContext();
   assert(parentDC->isTypeContext());
   auto parentDeclName = parentDC->getSelfNominalTypeDecl()->getNameStr();
-  auto fieldName = originalField->getNameStr();
+  llvm::SmallString<16> scratch;
+  auto fieldName = originalField->getNameStr(scratch);
   auto sourceLoc = loc.getSourceLoc();
   switch (tanFieldInfo.error->kind) {
   case TangentPropertyInfo::Error::Kind::NoDerivativeOriginalProperty:

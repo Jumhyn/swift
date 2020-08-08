@@ -399,12 +399,12 @@ bool CaseStmtScope::lookupLocalsOrMembers(ArrayRef<const ASTScopeImpl *>,
 
 bool AbstractFunctionBodyScope::lookupLocalsOrMembers(
     ArrayRef<const ASTScopeImpl *>, DeclConsumer consumer) const {
+  SmallVector<ValueDecl *, 8> paramBindings;
   if (auto *paramList = decl->getParameters()) {
     for (auto *paramDecl : *paramList)
-      if (consumer.consume({paramDecl}, DeclVisibilityKind::FunctionParameter))
-        return true;
+      paramBindings.push_back(paramDecl);
   }
-  return false;
+  return consumer.consume(paramBindings, DeclVisibilityKind::FunctionParameter);
 }
 
 bool MethodBodyScope::lookupLocalsOrMembers(
@@ -498,20 +498,20 @@ bool PatternEntryInitializerScope::lookupLocalsOrMembers(
 
 bool ClosureParametersScope::lookupLocalsOrMembers(
     ArrayRef<const ASTScopeImpl *>, DeclConsumer consumer) const {
+  SmallVector<ValueDecl *, 4> captureBindings;
   if (auto *cl = captureList.getPtrOrNull()) {
     CaptureListExpr *mutableCL =
         const_cast<CaptureListExpr *>(captureList.get());
     for (auto &e : mutableCL->getCaptureList()) {
-      if (consumer.consume(
-              {e.Var},
-              DeclVisibilityKind::LocalVariable)) // or FunctionParameter??
-        return true;
+      captureBindings.push_back(e.Var);
     }
   }
+  SmallVector<ValueDecl *, 8> paramBindings;
   for (auto param : *closureExpr->getParameters())
-    if (consumer.consume({param}, DeclVisibilityKind::FunctionParameter))
-      return true;
-  return false;
+    paramBindings.push_back(param);
+
+  return consumer.consume(captureBindings, DeclVisibilityKind::LocalVariable) ||
+    consumer.consume(paramBindings, DeclVisibilityKind::FunctionParameter);
 }
 
 bool ConditionalClausePatternUseScope::lookupLocalsOrMembers(
@@ -525,12 +525,11 @@ bool ASTScopeImpl::lookupLocalBindingsInPattern(Pattern *p,
                                                 DeclConsumer consumer) {
   if (!p)
     return false;
-  bool isDone = false;
+  SmallVector<ValueDecl *, 4> patternBindings;
   p->forEachVariable([&](VarDecl *var) {
-    if (!isDone)
-      isDone = consumer.consume({var}, vis);
+    patternBindings.push_back(var);
   });
-  return isDone;
+  return consumer.consume(patternBindings, vis);
 }
 
 #pragma mark computeSelfDC

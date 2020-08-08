@@ -1718,7 +1718,7 @@ ParameterList *ClangImporter::Implementation::importFunctionParameterList(
   if (auto CMD = dyn_cast<clang::CXXMethodDecl>(clangDecl)) {
     if (clangDecl->isOverloadedOperator()) {
       auto param = new (SwiftContext)
-          ParamDecl(SourceLoc(), SourceLoc(), Identifier(), SourceLoc(),
+          ParamDecl(SourceLoc(), SourceLoc(), Identifier(), DeclNameLoc(),
                     SwiftContext.getIdentifier("lhs"), dc);
 
       auto parent = CMD->getParent();
@@ -1784,7 +1784,7 @@ ParameterList *ClangImporter::Implementation::importFunctionParameterList(
     // imported header unit.
     auto paramInfo = createDeclWithClangNode<ParamDecl>(
         param, AccessLevel::Private, SourceLoc(), SourceLoc(), name,
-        importSourceLoc(param->getLocation()), bodyName,
+        DeclNameLoc(importSourceLoc(param->getLocation())), bodyName,
         ImportedHeaderUnit);
     paramInfo->setSpecifier(ParamSpecifier::Default);
     paramInfo->setInterfaceType(swiftParamTy);
@@ -1801,7 +1801,7 @@ ParameterList *ClangImporter::Implementation::importFunctionParameterList(
                               {SwiftContext.TheAnyType});
     auto name = SwiftContext.getIdentifier("varargs");
     auto param = new (SwiftContext) ParamDecl(SourceLoc(), SourceLoc(),
-                                              Identifier(), SourceLoc(),
+                                              Identifier(), DeclNameLoc(),
                                               name,
                                               ImportedHeaderUnit);
     param->setSpecifier(ParamSpecifier::Default);
@@ -2097,7 +2097,7 @@ ImportedType ClangImporter::Implementation::importMethodParamsAndReturnType(
     auto type = TupleType::getEmpty(SwiftContext);
     auto var = new (SwiftContext) ParamDecl(SourceLoc(),
                                             SourceLoc(), argName,
-                                            SourceLoc(), argName,
+                                            DeclNameLoc(), argName,
                                             ImportedHeaderUnit);
     var->setSpecifier(ParamSpecifier::Default);
     var->setInterfaceType(type);
@@ -2217,7 +2217,7 @@ ImportedType ClangImporter::Implementation::importMethodParamsAndReturnType(
     auto paramInfo
       = createDeclWithClangNode<ParamDecl>(param, AccessLevel::Private,
                                            SourceLoc(), SourceLoc(), name,
-                                           importSourceLoc(param->getLocation()),
+                             DeclNameLoc(importSourceLoc(param->getLocation())),
                                            bodyName,
                                            ImportedHeaderUnit);
     paramInfo->setSpecifier(ParamSpecifier::Default);
@@ -2335,7 +2335,8 @@ ImportedType ClangImporter::Implementation::importAccessorParamsAndReturnType(
       = createDeclWithClangNode<ParamDecl>(param, AccessLevel::Private,
                                            /*let loc*/SourceLoc(),
                                            /*label loc*/SourceLoc(),
-                                           argLabel, nameLoc, bodyName,
+                                           argLabel, DeclNameLoc(nameLoc),
+                                           bodyName,
                                            /*dummy DC*/ImportedHeaderUnit);
     paramInfo->setSpecifier(ParamSpecifier::Default);
     paramInfo->setInterfaceType(propertyTy);

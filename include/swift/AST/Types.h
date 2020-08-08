@@ -2040,7 +2040,7 @@ public:
 /// TupleTypeElt - This represents a single element of a tuple.
 class TupleTypeElt {
   /// An optional name for the field.
-  Identifier Name;
+  DeclName Name;
 
   /// This is the type of the field.
   Type ElementType;
@@ -2052,11 +2052,11 @@ class TupleTypeElt {
   
 public:
   TupleTypeElt() = default;
-  TupleTypeElt(Type ty, Identifier name = Identifier(),
+  TupleTypeElt(Type ty, DeclName name = DeclName(),
                ParameterTypeFlags fl = {});
   
   bool hasName() const { return !Name.empty(); }
-  Identifier getName() const { return Name; }
+  DeclName getName() const { return Name; }
   
   Type getRawType() const { return ElementType; }
   Type getType() const;
@@ -2080,10 +2080,10 @@ public:
   TupleTypeElt getWithType(Type T) const;
 
   /// Retrieve a copy of this tuple type element with the name replaced.
-  TupleTypeElt getWithName(Identifier name) const;
+  TupleTypeElt getWithName(DeclName name) const;
 
   /// Retrieve a copy of this tuple type element with no name
-  TupleTypeElt getWithoutName() const { return getWithName(Identifier()); }
+  TupleTypeElt getWithoutName() const { return getWithName(DeclName()); }
 };
 
 inline Type getTupleEltType(const TupleTypeElt &elt) {
@@ -2125,10 +2125,10 @@ public:
     return getTrailingObjects<TupleTypeElt>()[i];
   }
 
-  /// getElementType - Return the type of the specified element.
-  Type getElementType(unsigned ElementNo) const {
-    return getTrailingObjects<TupleTypeElt>()[ElementNo].getType();
-  }
+  /// getElementType - Return the type of the specified element. If
+  /// \c applyArgLabels is \c true, the returned function type will adopt the
+  /// argument labels from the tuple element's name.
+  Type getElementType(unsigned ElementNo, bool applyArgLabels = false) const;
 
   TupleEltTypeArrayRef getElementTypes() const {
     return TupleEltTypeArrayRef(getElements());
@@ -2136,7 +2136,13 @@ public:
   
   /// getNamedElementId - If this tuple has an element with the specified name,
   /// return the element index, otherwise return -1.
-  int getNamedElementId(Identifier I) const;
+  int getNamedElementId(DeclName N) const;
+
+  /// Since tuple elements can have compound names, we may have to lookup
+  /// just a base name within a tuple, which may match multiple different
+  /// members with different argument labels.
+  void lookupElementsByBaseName(DeclBaseName N,
+                                SmallVectorImpl<int> &indices) const;
   
   /// Returns true if this tuple has inout, __shared or __owned elements.
   bool hasElementWithOwnership() const {
@@ -3389,6 +3395,10 @@ public:
   /// Returns a new function type exactly like this one but with the ExtInfo
   /// replaced.
   AnyFunctionType *withExtInfo(ExtInfo info) const;
+
+  /// Returns a new function type exactly like this one but with the argument
+  /// labels replaced.
+  AnyFunctionType *withArgLabels(ArrayRef<Identifier> arg) const;
 
   static void printParams(ArrayRef<Param> Params, raw_ostream &OS,
                           const PrintOptions &PO = PrintOptions());
@@ -6405,7 +6415,7 @@ inline Type TupleTypeElt::getVarargBaseTy() const {
   return T;
 }
 
-inline TupleTypeElt TupleTypeElt::getWithName(Identifier name) const {
+inline TupleTypeElt TupleTypeElt::getWithName(DeclName name) const {
   assert(getParameterFlags().isInOut() == getType()->is<InOutType>());
   return TupleTypeElt(getRawType(), name, getParameterFlags());
 }

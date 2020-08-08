@@ -560,17 +560,31 @@ public:
     return consumeToken();
   }
 
-  SourceLoc consumeArgumentLabel(Identifier &Result) {
+  SourceLoc consumeSimpleArgumentLabel(Identifier &Result) {
+    DeclName name;
+    auto loc = consumeArgumentLabel(name);
+    Result = name.getBaseIdentifier();
+    return loc.getBaseNameLoc();
+  }
+
+  DeclNameLoc consumeArgumentLabel(DeclName &Result,
+                                   bool allowCompound = false) {
     assert(Tok.canBeArgumentLabel());
     assert(Result.empty());
     if (!Tok.is(tok::kw__)) {
       Tok.setKind(tok::identifier);
+      if (allowCompound) {
+          DeclNameLoc nameLoc;
+          Result = parseDeclName(nameLoc, diag::expected_pattern,
+                                 DeclNameFlag::AllowCompoundNames);
+          return nameLoc;
+      }
       Result = Context.getIdentifier(Tok.getText());
 
       if (Tok.getText()[0] == '$')
         diagnoseDollarIdentifier(Tok);
     }
-    return consumeToken();
+    return DeclNameLoc(consumeToken());
   }
 
   /// When we have a token that is an identifier starting with '$',
@@ -1266,22 +1280,25 @@ public:
 
     /// The location of the first name.
     ///
-    /// \c FirstName is the name.
-    SourceLoc FirstNameLoc;
+    /// \c FirstName is the name. See \c FirstName for why this isn't a
+    /// \c SourceLoc.
+    DeclNameLoc FirstNameLoc;
 
     /// The location of the second name, if present.
     ///
     /// \p SecondName is the name.
-    SourceLoc SecondNameLoc;
+    DeclNameLoc SecondNameLoc;
 
     /// The location of the '...', if present.
     SourceLoc EllipsisLoc;
 
-    /// The first name.
-    Identifier FirstName;
+    /// The first name. Technically, this should be a \c Identifier rather than
+    /// a \c DeclName, but we allow compound names to be parsed in order to
+    /// offer better diagnostics.
+    DeclName FirstName;
 
     /// The second name, the presence of which is indicated by \c SecondNameLoc.
-    Identifier SecondName;
+    DeclName SecondName;
 
     /// The type following the ':'.
     TypeRepr *Type = nullptr;
@@ -1381,7 +1398,7 @@ public:
                                                        bool isExprBasic);
   
 
-  Pattern *createBindingFromPattern(SourceLoc loc, Identifier name,
+  Pattern *createBindingFromPattern(SourceLoc loc, DeclName name,
                                     VarDecl::Introducer introducer);
   
 
@@ -1475,7 +1492,20 @@ public:
   /// \param name The parsed name of the label (empty if it doesn't exist, or is
   /// _)
   /// \param loc The location of the label (empty if it doesn't exist)
-  void parseOptionalArgumentLabel(Identifier &name, SourceLoc &loc);
+  void parseOptionalArgumentLabel(DeclName &name, DeclNameLoc &loc,
+                                  bool allowCompound = false);
+
+  /// Strips the input names of any argument labels, leaving only the base names
+  /// (and locs) behind.
+  void getSimpleArgumentLabels(SmallVectorImpl<DeclName> &inLabels,
+                               SmallVectorImpl<DeclNameLoc> &inLocs,
+                               SmallVectorImpl<Identifier> &outLabels,
+                               SmallVectorImpl<SourceLoc> &outLocs);
+
+  /// Checks if there's a compound decl name to consume, populates \c following
+  /// with the token immediately following the name if so. If there is no name
+  /// to consume, \c following remains unchanged.
+  bool canConsumeCompoundDeclName(Token *following = nullptr);
 
   enum class DeclNameFlag : uint8_t {
     /// If passed, operator basenames are allowed.
@@ -1514,6 +1544,10 @@ public:
   ///     unqualified-decl-base-name '(' ((identifier | '_') ':') + ')'
   DeclNameRef parseDeclNameRef(DeclNameLoc &loc, const Diagnostic &diag,
                                DeclNameOptions flags);
+  /// Convenience for the above when the name is in 'decl' position rather than
+  /// 'ref' position.
+  DeclName parseDeclName(DeclNameLoc &loc, const Diagnostic &diag,
+                         DeclNameOptions flags);
 
   Expr *parseExprIdentifier();
   Expr *parseExprEditorPlaceholder(Token PlaceholderTok,
@@ -1573,11 +1607,12 @@ public:
                              bool isExprBasic,
                              SourceLoc &leftLoc,
                              SmallVectorImpl<Expr *> &exprs,
-                             SmallVectorImpl<Identifier> &exprLabels,
-                             SmallVectorImpl<SourceLoc> &exprLabelLocs,
+                             SmallVectorImpl<DeclName> &exprLabels,
+                             SmallVectorImpl<DeclNameLoc> &exprLabelLocs,
                              SourceLoc &rightLoc,
                              SmallVectorImpl<TrailingClosure> &trailingClosures,
-                             syntax::SyntaxKind Kind);
+                             syntax::SyntaxKind Kind,
+                             bool allowCompoundLabels = false);
 
   ParserStatus
   parseTrailingClosures(bool isExprBasic, SourceRange calleeRange,

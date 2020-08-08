@@ -659,8 +659,9 @@ noteTypoCorrection(DeclNameLoc loc, ValueDecl *decl,
       }
 
       auto &Diags = decl->getASTContext().Diags;
+      assert(var->getName().isSimpleName() && "Self param must be simple name");
       return Diags.diagnose(loc.getBaseNameLoc(), diag::note_typo_candidate,
-                            var->getName().str());
+                            var->getBaseIdentifier().str());
     }
   }
 

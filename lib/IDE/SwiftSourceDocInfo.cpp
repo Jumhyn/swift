@@ -123,17 +123,18 @@ static std::vector<CharSourceRange> getLabelRanges(const ParameterList* List,
       continue;
 
     SourceLoc NameLoc = Param->getArgumentNameLoc();
-    SourceLoc ParamLoc = Param->getNameLoc();
+    DeclNameLoc ParamLoc = Param->getParameterNameLoc();
     size_t NameLength;
     if (NameLoc.isValid()) {
       LabelRanges.push_back(Lexer::getCharSourceRangeFromSourceRange(
-                                SM, SourceRange(NameLoc, ParamLoc)));
+                               SM, SourceRange(NameLoc, ParamLoc.getEndLoc())));
     } else {
-      NameLoc = ParamLoc;
-      NameLength = Param->getNameStr().size();
-      if (SM.extractText({NameLoc, 1}) == "`")
+      llvm::SmallString<16> scratch;
+      NameLength = Param->getNameStr(scratch).size();
+      if (SM.extractText({ParamLoc.getStartLoc(), 1}) == "`")
         NameLength += 2;
-      LabelRanges.push_back(CharSourceRange(NameLoc, NameLength));
+      LabelRanges.push_back(CharSourceRange(ParamLoc.getStartLoc(),
+                                            NameLength));
     }
   }
   return LabelRanges;
@@ -152,7 +153,7 @@ static std::vector<CharSourceRange> getEnumParamListInfo(SourceManager &SM,
     SourceLoc LabelEnd(LabelStart);
     
     if (Param->getNameLoc().isValid()) {
-      LabelStart = Param->getNameLoc();
+      LabelStart = Param->getNameLoc().getStartLoc();
     }
     LabelRanges.push_back(CharSourceRange(SM, LabelStart, LabelEnd));
   }
@@ -233,7 +234,7 @@ bool NameMatcher::walkToDeclPre(Decl *D) {
     return false;
   } else if (AbstractFunctionDecl *AFD = dyn_cast<AbstractFunctionDecl>(D)) {
     std::vector<CharSourceRange> LabelRanges;
-    if (AFD->getNameLoc() == nextLoc()) {
+    if (AFD->getNameLoc().getBaseNameLoc() == nextLoc()) {
       auto ParamList = AFD->getParameters();
       LabelRanges = getLabelRanges(ParamList, getSourceMgr());
     }
@@ -398,7 +399,9 @@ std::pair<bool, Expr*> NameMatcher::walkToExprPre(Expr *E) {
         for (unsigned i = 0, e = T->getNumElements(); i != e; ++i) {
           auto Name = T->getElementName(i);
           if (!Name.empty()) {
-            tryResolve(ASTWalker::ParentTy(E), T->getElementNameLoc(i));
+            assert(Name.isSimpleName() && "Arg label cannot be compound name");
+            tryResolve(ASTWalker::ParentTy(E),
+                       T->getElementNameLoc(i).getBaseNameLoc());
             if (isDone())
               break;
           }
@@ -897,8 +900,10 @@ getCallArgInfo(SourceManager &SM, Expr *Arg, LabelRangeEndAt EndKind) {
       SourceLoc LabelEnd(LabelStart);
 
       bool IsTrailingClosure = FirstTrailing && ElemIndex >= *FirstTrailing;
-      SourceLoc NameLoc = TE->getElementNameLoc(ElemIndex);
+      SourceLoc NameLoc = TE->getElementNameLoc(ElemIndex).getBaseNameLoc();
       if (NameLoc.isValid()) {
+        assert(TE->getElementName(ElemIndex).isSimpleName() &&
+               "Arg label cannot be compound name");
         LabelStart = NameLoc;
         if (EndKind == LabelRangeEndAt::LabelNameOnly || IsTrailingClosure) {
           LabelEnd = Lexer::getLocForEndOfToken(SM, NameLoc);

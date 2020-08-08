@@ -2038,7 +2038,7 @@ void swift::checkUnknownAttrRestrictions(
 }
 
 void swift::bindSwitchCasePatternVars(CaseStmt *caseStmt) {
-  llvm::SmallDenseMap<Identifier, std::pair<VarDecl *, bool>, 4> latestVars;
+  llvm::SmallDenseMap<DeclName, std::pair<VarDecl *, bool>, 4> latestVars;
   auto recordVar = [&](VarDecl *var) {
     if (!var->hasName())
       return;

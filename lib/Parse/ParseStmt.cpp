@@ -844,8 +844,8 @@ ParserResult<Stmt> Parser::parseStmtYield(SourceLoc tryLoc) {
 
     SyntaxParsingContext YieldsCtxt(SyntaxContext, SyntaxKind::YieldList);
 
-    SmallVector<Identifier, 4> yieldLabels;
-    SmallVector<SourceLoc, 4> yieldLabelLocs;
+    SmallVector<DeclName, 4> yieldLabels;
+    SmallVector<DeclNameLoc, 4> yieldLabelLocs;
     SmallVector<TrailingClosure, 2> trailingClosures;
 
     status = parseExprList(tok::l_paren, tok::r_paren,
@@ -1089,8 +1089,8 @@ static void parseGuardedPattern(Parser &P, GuardedPattern &result,
     auto errorName = P.Context.Id_error;
     auto var = new (P.Context) VarDecl(/*IsStatic*/false,
                                        VarDecl::Introducer::Let,
-                                       /*IsCaptureList*/false, loc, errorName,
-                                       P.CurDeclContext);
+                                       /*IsCaptureList*/false, DeclNameLoc(loc),
+                                       errorName, P.CurDeclContext);
     var->setImplicit();
     auto namePattern = new (P.Context) NamedPattern(var);
     auto varPattern =
