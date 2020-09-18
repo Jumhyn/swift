@@ -1872,7 +1872,8 @@ convertPrimitiveBuiltin(IRGenModule &IGM, CanType canTy) {
       = convertPrimitiveBuiltin(IGM,
                                 vecTy->getElementType()->getCanonicalType());
 
-    auto llvmVecTy = llvm::VectorType::get(elementTy, vecTy->getNumElements());
+    auto llvmVecTy = llvm::VectorType::get(elementTy, vecTy->getNumElements(),
+                                           false);
     unsigned bitSize = size.getValue() * vecTy->getNumElements() * 8;
     if (!llvm::isPowerOf2_32(bitSize))
       bitSize = llvm::NextPowerOf2(bitSize);
