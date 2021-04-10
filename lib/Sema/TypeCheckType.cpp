@@ -1974,6 +1974,16 @@ Type ResolveTypeRequest::evaluate(Evaluator &evaluator,
   if (validateAutoClosureAttributeUse(ctx.Diags, TyR, result, options))
     return ErrorType::get(ctx);
 
+  // Diagnose an attempt to use a placeholder at the top level.
+  if (isa<PlaceholderTypeRepr>(TyR) &&
+      resolution->getOptions().contains(TypeResolutionFlags::Direct)) {
+    if (!resolution->getOptions().contains(TypeResolutionFlags::SilenceErrors))
+      ctx.Diags.diagnose(loc, diag::top_level_placeholder_type);
+
+    TyR->setInvalid();
+    return ErrorType::get(ctx);
+  }
+
   return result;
 }
 
