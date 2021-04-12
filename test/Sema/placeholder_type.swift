@@ -198,3 +198,17 @@ let _: SetFailureType<Int, (String, Double)> = Just<Int>().setFailureType(to: (_
 
 // TODO: Better error message here? Would be nice if we could point to the placeholder...
 let _: SetFailureType<Int, String> = Just<Int>().setFailureType(to: _.self).setFailureType(to: String.self) // expected-error {{placeholders are not allowed as top-level types}}
+
+_ = (1...10)
+    .map {
+        (
+            $0,
+            (
+                "\($0)",
+                $0 > 5
+            )
+        )
+    }
+    .map { (intValue, x: (_, boolValue: _)) in
+        x.boolValue ? intValue : 0
+    }
